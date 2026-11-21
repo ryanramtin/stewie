@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
-  <string>Stewie</string>
+  <string>Ok Stewie</string>
   <key>CFBundleDisplayName</key>
-  <string>Stewie</string>
+  <string>Ok Stewie</string>
   <key>CFBundleIdentifier</key>
   <string>local.stewie.launcher</string>
   <key>CFBundleVersion</key>

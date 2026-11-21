@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do
 done
 
 # Prefer the OK Stewie brand icon when it is on this machine.
-DEFAULT_ICON="$HOME/ok-stewie-partners-l5/assets/images/icon.png"
+DEFAULT_ICON="$HOME/ok-stewie-partners-l5/assets/images/ios-icon-dark.png"
 if [ -z "$ICON" ] && [ -f "$DEFAULT_ICON" ]; then ICON="$DEFAULT_ICON"; fi
 
 if [ -n "$ICON" ] && [ -f "$ICON" ]; then
@@ -30,7 +30,8 @@ if [ -z "$DEST" ]; then
   if [ -w /Applications ]; then DEST=/Applications; else DEST="$HOME/Applications"; fi
 fi
 mkdir -p "$DEST" "$HOME/.stewie"
-APP="$DEST/Stewie.app"
+APP="$DEST/Ok Stewie.app"
+rm -rf "$DEST/Stewie.app"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

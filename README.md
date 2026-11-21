@@ -29,7 +29,7 @@ Agent CLIs differ less in the model than in the harness around it:
 
 ## Mac app
 
-`scripts/build-app.sh` builds `Stewie.app` (icon included) and installs it to `/Applications`.
+`scripts/build-app.sh` builds **Ok Stewie.app** (dark brand icon included) and installs it to `/Applications`.
 
 Double-click it:
 
@@ -38,7 +38,7 @@ Double-click it:
 - the dashboard runs on `127.0.0.1:4321`; the app is only a launcher, it exits immediately
 - `STEWIE_REPO=/path/to/repo open -a Stewie` skips the picker entirely (Raycast/Alfred friendly)
 
-By default it uses the OK Stewie brand icon (`~/ok-stewie-partners-l5/assets/images/icon.png`) masked to the macOS squircle via `scripts/make-icns.py`. Pass `--icon path/to.png` for a different one; with no asset found it falls back to the generated mark from `scripts/make-icon.mjs`.
+By default it uses the OK Stewie dark icon (`~/ok-stewie-partners-l5/assets/images/ios-icon-dark.png`) masked to the macOS squircle via `scripts/make-icns.py`. Pass `--icon path/to.png` for a different one; with no asset found it falls back to the generated mark from `scripts/make-icon.mjs`.
 
 ## Commands
 
