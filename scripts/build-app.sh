@@ -1,47 +1,53 @@
 #!/bin/bash
-# Builds Stewie.app and installs it.
-# usage: build-app.sh [--icon path/to/icon.png] [--dest /Applications]
+# Builds both launchers and installs them.
+#   Ok Stewie.app      -> your web app (127.0.0.1:8093), starts it if down
+#   Stewie Console.app -> the agent dashboard (127.0.0.1:4321)
+# usage: build-app.sh [--dest DIR]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_SRC="$ROOT/scripts/Stewie.app"
 DEST=""
-ICON=""
-
 while [ $# -gt 0 ]; do
   case "$1" in
-    --icon) ICON="${2:-}"; shift 2 ;;
     --dest) DEST="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
 done
 
-# Prefer the OK Stewie brand icon when it is on this machine.
-DEFAULT_ICON="$HOME/ok-stewie-partners-l5/assets/images/ios-icon-dark.png"
-if [ -z "$ICON" ] && [ -f "$DEFAULT_ICON" ]; then ICON="$DEFAULT_ICON"; fi
-
-if [ -n "$ICON" ] && [ -f "$ICON" ]; then
-  python3 "$ROOT/scripts/make-icns.py" "$ICON" --out "$ROOT/.build/AppIcon.icns"
-else
-  node "$ROOT/scripts/make-icon.mjs"
-fi
-
 if [ -z "$DEST" ]; then
   if [ -w /Applications ]; then DEST=/Applications; else DEST="$HOME/Applications"; fi
 fi
-mkdir -p "$DEST" "$HOME/.stewie"
-APP="$DEST/Ok Stewie.app"
-rm -rf "$DEST/Stewie.app"
 
-rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$APP_SRC/Contents/Info.plist" "$APP/Contents/Info.plist"
-cp "$APP_SRC/Contents/MacOS/Stewie" "$APP/Contents/MacOS/Stewie"
-chmod +x "$APP/Contents/MacOS/Stewie"
-cp "$ROOT/.build/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+WEB_ICON="$HOME/ok-stewie-partners-l5/assets/images/ios-icon-dark.png"
 
-xattr -cr "$APP" 2>/dev/null || true
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
-touch "$APP"
+install_app() {
+  local name="$1" src="$2" icon_src="$3"
+  local app="$DEST/$name.app"
+  rm -rf "$app"
+  mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+  cp "$src/Contents/Info.plist" "$app/Contents/Info.plist"
+  cp "$src/Contents/MacOS/launch" "$app/Contents/MacOS/launch"
+  chmod +x "$app/Contents/MacOS/launch"
+  cp "$icon_src" "$app/Contents/Resources/AppIcon.icns"
+  xattr -cr "$app" 2>/dev/null || true
+  codesign --force --deep --sign - "$app" >/dev/null 2>&1 || true
+  touch "$app"
+  echo "installed $app"
+}
 
-echo "installed $APP"
+# web app icon: the real Ok Stewie mark, squircle-masked
+if [ -f "$WEB_ICON" ]; then
+  python3 "$ROOT/scripts/make-icns.py" "$WEB_ICON" --out "$ROOT/.build/web-icon.icns" >/dev/null
+else
+  node "$ROOT/scripts/make-icon.mjs" >/dev/null
+  cp "$ROOT/.build/AppIcon.icns" "$ROOT/.build/web-icon.icns"
+fi
+
+# console icon: the generated node-graph mark
+node "$ROOT/scripts/make-icon.mjs" >/dev/null
+
+mkdir -p "$HOME/.stewie"
+rm -rf "$DEST/Stewie.app" # legacy name from the first build
+
+install_app "Ok Stewie" "$ROOT/scripts/apps/OkStewie" "$ROOT/.build/web-icon.icns"
+install_app "Stewie Console" "$ROOT/scripts/apps/StewieConsole" "$ROOT/.build/AppIcon.icns"

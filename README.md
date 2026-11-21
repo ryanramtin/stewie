@@ -27,18 +27,19 @@ Agent CLIs differ less in the model than in the harness around it:
 | Resource discipline | — | sandbox | — | none | RAM/load guard + heavy lane + nice |
 | Undo / inspect | `/rewind` | diff | diff | snapshots | per-run logs + per-node logs |
 
-## Mac app
+## Mac apps
 
-`scripts/build-app.sh` builds **Ok Stewie.app** (dark brand icon included) and installs it to `/Applications`.
+`scripts/build-app.sh` installs two one-click launchers to `/Applications`:
 
-Double-click it:
+| App | Opens |
+| --- | --- |
+| **Ok Stewie.app** | your web app at `127.0.0.1:8093` (starts `serve-web.mjs` if it is down) — uses the real Ok Stewie icon |
+| **Stewie Console.app** | the agent dashboard at `127.0.0.1:4321` — generated mark, dev tool |
 
-- first run asks which folder to work in (native picker), remembers it
-- after that, a click goes straight to the dashboard for the last repo (0.1s, no dialog)
-- the dashboard runs on `127.0.0.1:4321`; the app is only a launcher, it exits immediately
-- `STEWIE_REPO=/path/to/repo open -a Stewie` skips the picker entirely (Raycast/Alfred friendly)
+`STEWIE_REPO=/path/to/repo open -a "Stewie Console"` skips the folder picker.
 
-By default it uses the OK Stewie dark icon (`~/ok-stewie-partners-l5/assets/images/ios-icon-dark.png`) masked to the macOS squircle via `scripts/make-icns.py`. Pass `--icon path/to.png` for a different one; with no asset found it falls back to the generated mark from `scripts/make-icon.mjs`.
+Icons: `scripts/make-icns.py` masks any square PNG into a macOS squircle and builds the `.icns`;
+`scripts/make-icon.mjs` draws the console mark from scratch with no dependencies.
 
 ## Commands
 
