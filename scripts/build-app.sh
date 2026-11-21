@@ -1,24 +1,13 @@
 #!/bin/bash
 # Builds both launchers and installs them.
-#   Ok Stewie.app      -> your web app (127.0.0.1:8093), starts it if down
 #   Stewie Console.app -> the agent dashboard (127.0.0.1:4321)
-# usage: build-app.sh [--dest DIR]
+#   plus any personal launcher found in ~/.stewie/apps/
+# usage: build-app.sh [--dest DIR] [--icon path/to/brand.png]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --dest) DEST="${2:-}"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-
-if [ -z "$DEST" ]; then
-  if [ -w /Applications ]; then DEST=/Applications; else DEST="$HOME/Applications"; fi
-fi
-
-WEB_ICON="$HOME/ok-stewie-partners-l5/assets/images/ios-icon-dark.png"
+WEB_ICON=""
 
 install_app() {
   local name="$1" src="$2" icon_src="$3"
@@ -35,8 +24,19 @@ install_app() {
   echo "installed $app"
 }
 
-# web app icon: the real Ok Stewie mark, squircle-masked
-if [ -f "$WEB_ICON" ]; then
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --icon) WEB_ICON="${2:-}"; shift 2 ;;
+    --dest) DEST="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+if [ -z "$DEST" ]; then
+  if [ -w /Applications ]; then DEST=/Applications; else DEST="$HOME/Applications"; fi
+fi
+
+if [ -n "$WEB_ICON" ] && [ -f "$WEB_ICON" ]; then
   python3 "$ROOT/scripts/make-icns.py" "$WEB_ICON" --out "$ROOT/.build/web-icon.icns" >/dev/null
 else
   node "$ROOT/scripts/make-icon.mjs" >/dev/null
@@ -49,5 +49,15 @@ node "$ROOT/scripts/make-icon.mjs" >/dev/null
 mkdir -p "$HOME/.stewie"
 rm -rf "$DEST/Stewie.app" # legacy name from the first build
 
-install_app "Ok Stewie" "$ROOT/scripts/apps/OkStewie" "$ROOT/.build/web-icon.icns"
 install_app "Stewie Console" "$ROOT/scripts/apps/StewieConsole" "$ROOT/.build/AppIcon.icns"
+
+# personal launchers live outside the repo
+if [ -d "$HOME/.stewie/apps" ]; then
+  for dir in "$HOME"/.stewie/apps/*/; do
+    [ -d "$dir/Contents" ] || continue
+    name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "$dir/Contents/Info.plist" 2>/dev/null || basename "$dir" .app)"
+    icon="$ROOT/.build/web-icon.icns"
+    [ -f "$dir/Contents/Resources/AppIcon.icns" ] && icon="$dir/Contents/Resources/AppIcon.icns"
+    install_app "$name" "$dir" "$icon"
+  done
+fi

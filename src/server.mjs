@@ -2,6 +2,7 @@
 // Loopback only, no dependencies, no file watchers — the page polls small JSON.
 
 import http from 'node:http';
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
@@ -14,7 +15,7 @@ import { dashboardHtml } from './ui.mjs';
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'stewie.mjs');
 const MAX_JOB_OUTPUT = 20 * 1024;
 
-export function startServer({ repoRoot, port = 4321, open = true, log = () => {} }) {
+export function startServer({ repoRoot, port = 4321, host = '127.0.0.1', open = true, openPath = '/', log = () => {} }) {
   const jobs = new Map();
   let activeRun = null; // child process for a run
 
@@ -91,13 +92,14 @@ export function startServer({ repoRoot, port = 4321, open = true, log = () => {}
       } else reject(err);
     };
     server.on('error', onError);
-    server.listen(port, '127.0.0.1', () => {
+    server.listen(port, host, () => {
       const actual = server.address().port;
-      const url = `http://127.0.0.1:${actual}`;
+      const shown = host === '0.0.0.0' ? lanAddress() ?? '127.0.0.1' : host;
+      const url = `http://${shown}:${actual}`;
       log(`dashboard ${url}`);
       if (open) {
         try {
-          execFileSync('open', [url]);
+          execFileSync('open', [url + openPath]);
         } catch { /* headless */ }
       }
       resolve({
@@ -116,6 +118,15 @@ export function startServer({ repoRoot, port = 4321, open = true, log = () => {}
       });
     });
   });
+}
+
+function lanAddress() {
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const net of list ?? []) {
+      if (net.family === 'IPv4' && !net.internal) return net.address;
+    }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- data

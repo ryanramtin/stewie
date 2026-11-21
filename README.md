@@ -1,116 +1,99 @@
 # stewie
 
-Bounded task-graph runner for OpenCode. It gives an OpenCode setup the things that
-make Claude Code / Codex CLI / Grok CLI feel "robust" — planning, durable runs,
-parallel workers, verification gates, resume-after-crash — while refusing to let
-those workers swap or freeze the machine.
+A dashboard for coding agents, running on a 15-year-old LG TV in my office.
 
+![the console](docs/screenshot.png)
+
+I use Claude Code, Codex, Grok and OpenCode every day. They all do the same thing badly:
+they run in a terminal scrollback, one job at a time, and a long job dies with the window.
+So I built the piece I kept wanting: a small runner that takes a goal, splits it into
+workers, runs a couple at a time, checks its own work, and survives a crash. Then I put a
+big screen on it so I can see what the agents are doing from across the room.
+
+That screen is an old LG TV with a browser pointed at `localhost`. It never needed to be
+more than that.
+
+![tv mode](docs/screenshot-tv.png)
+
+## What it actually does
+
+- **Plans before it edits.** A read-only planner agent reads the repo and writes a dependency graph of small tasks.
+- **Runs workers in parallel, with a ceiling.** Two at a time by default, one heavy job (tests, typecheck, build) at a time.
+- **Refuses to melt the machine.** Before every start it reads real free RAM and load average. If either is over the line it holds and resumes when the machine frees up.
+- **Checks its own work.** Every node can carry a verify command. The node is done when that command passes, not when the model says it is.
+- **Survives a crash.** Node state is written to disk on every transition, so `stewie resume` picks up where it stopped.
+- **Shows you the work.** Live log of the worker that is running, the files it touched with line counts, and a pass or fail for each check.
+
+## Install
+
+```bash
+git clone https://github.com/ryanramtin/stewie.git
+cd stewie
+npm link          # puts `stewie` on your PATH
+node --test "test/*.test.mjs"
 ```
-stewie serve             # local dashboard: goal box, live workers, logs, stop
-stewie plan "<goal>"     # planner agent writes .stewie/graph.json
-stewie run               # execute the graph, 2 workers at a time, guard on
-stewie status            # per-node state, always on disk
-stewie resume            # pick up after a crash or Ctrl-C
+
+Node 20 or newer. Agent nodes call `opencode run`; shell-only graphs work without it.
+
+## Use
+
+From any repo:
+
+```bash
+stewie plan "add a --verbose flag to the web server and cover it with a test"
+stewie run
+stewie status
 ```
 
-## Why
+Or open the console and do it from there:
 
-Agent CLIs differ less in the model than in the harness around it:
+```bash
+stewie serve            # http://127.0.0.1:4321
+stewie serve --tv       # big type, no input box, for a wall screen
+stewie serve --lan      # reachable from other devices on your network
+```
 
-| Capability | Claude Code | Codex CLI | Grok CLI | OpenCode (before) | Here |
-| --- | --- | --- | --- | --- | --- |
-| Plan before edit | plan mode | plan/ask mode | yes | `plan` agent exists | `stewie plan` writes a graph + `planner` agent |
-| Parallel workers | Task subagents | yes | yes | subagent tool | graph nodes, bounded concurrency |
-| Durable / resumable run | sessions | `resume` | sessions | session only | `state.json` per node, `stewie resume` |
-| Verify before "done" | hooks / tests | approvals + tests | tests | manual | `verify` per node, failure = retry then fail |
-| Crash safety | checkpoints | sandbox | sandbox | snapshots | atomic state, process groups, timeouts |
-| Resource discipline | — | sandbox | — | none | RAM/load guard + heavy lane + nice |
-| Undo / inspect | `/rewind` | diff | diff | snapshots | per-run logs + per-node logs |
+`stewie --help` lists the rest: `resume`, `logs`, `graph`, `verify`, `doctor`, `init`.
 
-## Mac apps
+## The graph
 
-`scripts/build-app.sh` installs two one-click launchers to `/Applications`:
-
-| App | Opens |
-| --- | --- |
-| **Ok Stewie.app** | your web app at `127.0.0.1:8093` (starts `serve-web.mjs` if it is down) — uses the real Ok Stewie icon |
-| **Stewie Console.app** | the agent dashboard at `127.0.0.1:4321` — generated mark, dev tool |
-
-`STEWIE_REPO=/path/to/repo open -a "Stewie Console"` skips the folder picker.
-
-Icons: `scripts/make-icns.py` masks any square PNG into a macOS squircle and builds the `.icns`;
-`scripts/make-icon.mjs` draws the console mark from scratch with no dependencies.
-
-## Commands
-
-| Command | What it does |
-| --- | --- |
-| `stewie init [--goal "…"]` | create `.stewie/graph.json`, add `.stewie/` to `.gitignore` |
-| `stewie plan "<goal>"` | run the `planner` agent, validate its JSON, write the graph |
-| `stewie run [graph.json]` | execute the graph |
-| `stewie resume [runId]` | continue the latest (or named) run; rewinds `running` nodes |
-| `stewie status [runId]` | node table for a run |
-| `stewie logs <node> [runId]` | full log of one node |
-| `stewie graph [graph.json]` | dependency listing |
-| `stewie verify [cmd]` | run detected `typecheck`/`lint`/`test` once |
-| `stewie doctor` | machine + repo readiness |
-| `stewie serve [--port]` | local dashboard at `127.0.0.1` (loopback only, no deps, no watchers) |
-
-`run` flags: `--concurrency N`, `--model`, `--agent`, `--budget-min N`,
-`--max-nodes N`, `--fail-fast`, `--dry-run`, `--force`.
-
-## Graph format
+A graph is a JSON file. Everything else is optional.
 
 ```json
 {
   "goal": "Add passkey re-auth to the settings screen",
-  "concurrency": 2,
   "nodes": [
     { "id": "explore", "task": "Map the auth code and list the test commands." },
-    { "id": "implement", "deps": ["explore"], "task": "Implement it.", "verify": ["pnpm typecheck"] },
-    { "id": "check", "deps": ["implement"], "kind": "shell", "command": "pnpm test -- auth" }
+    { "id": "api", "deps": ["explore"], "task": "Add the challenge endpoint.", "verify": ["pnpm typecheck"] },
+    { "id": "check", "deps": ["api"], "kind": "shell", "command": "pnpm test -- passkey" }
   ]
 }
 ```
 
-- `kind: "agent"` (default when `task` is set) runs a headless `opencode run` in a child session.
-- `kind: "shell"` runs a command in `zsh -lc`.
-- `deps` gate start; completed nodes hand their `SUMMARY:` block to dependants.
-- `verify` commands run after a node and decide success — not the model's opinion.
-- Commands matching test/typecheck/lint/build, and any node with `verify`, run in
-  the single `heavy` lane so two test suites never fight for the CPU.
+Agent nodes get a child session with the goal, their task, and a summary of every node that
+finished before them. Shell nodes run in `zsh -lc`. A node's verify commands decide success,
+and a failure retries once with backoff before it fails the node and blocks whatever
+depended on it.
 
-## The guard (why it won't crash the machine)
+## Why a graph instead of one long session
 
-Before every start, `stewie` checks free RAM (via `vm_stat` on macOS, not the
-lying `os.freemem()`) and 1-minute load. If either is over the line it holds —
-logging once a minute — and resumes when the machine frees up. A 3-minute stall
-timer lets exactly one node through so a permanently busy machine cannot
-deadlock the run.
-
-Defaults: concurrency `min(3, floor(cores / 4))` (2 on an 8-core box), minimum
-free RAM `max(1.5 GB, 10% of RAM)`, max load `cores × 1.0`, node timeout 15 min,
-workers started with `nice -n 10`, one heavy job at a time.
-
-## Layout of a run
-
-```
-.stewie/
-  graph.json
-  latest
-  runs/<runId>/
-    graph.json          # frozen copy — resume uses this, not the current file
-    state.json          # node status, attempts, verify results
-    logs/<node>.log
-    logs/<node>.summary.txt
-    diffs/<node>.stat    # git diff --stat captured when the node finished
-    diffs/<node>.patch   # full diff (fuzzy attribution when nodes run in parallel)
-```
+One long session has no place to checkpoint, no way to parallelise, and no gate between
+"the model thinks it is done" and "it is done". A graph gives you all three, and it makes
+the work visible, which is the whole point of the TV.
 
 ## Safety
 
-- Children get their own process group; timeouts kill the group (`SIGTERM`, then `SIGKILL`).
-- State is written atomically (`state.json.tmp` → rename), so a hard kill never corrupts a run.
-- `verify` failure is a failure even when the model says it succeeded.
-- Graph nodes never commit, push, or deploy — the prompt forbids it and the
-  global permission rules block the catastrophic cases.
+- Workers run with `nice -n 10`, in their own process group, with a timeout that kills the group.
+- State is written atomically, so a hard kill cannot corrupt a run.
+- Node prompts forbid commits, pushes and deploys.
+- `stewie serve` binds to loopback unless you pass `--lan`.
+
+## Also in here
+
+- `stewie verify` runs the repo's typecheck, lint and test in one go.
+- `scripts/build-app.sh` builds a macOS launcher for the console. `scripts/make-icon.mjs` draws its icon with no dependencies.
+- `scripts/demo.mjs` seeds a fake run so you can look at the dashboard without spending tokens.
+
+## License
+
+MIT.

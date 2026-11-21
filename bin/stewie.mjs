@@ -380,12 +380,18 @@ function cmdDoctor() {
 async function cmdServe({ flags }) {
   const root = repoRoot();
   const port = Number(flags.port ?? 4321);
+  const lan = Boolean(flags.lan);
+  const tv = Boolean(flags.tv);
   const srv = await startServer({
     repoRoot: root,
     port,
+    host: lan ? '0.0.0.0' : '127.0.0.1',
     open: flags['no-open'] ? false : true,
+    openPath: tv ? '/?tv=1' : '/',
     log: (m) => console.log(C.bold(m)),
   });
+  if (tv) console.log(C.dim('tv mode: big type, no input box — point the TV at this URL'));
+  if (lan) console.log(C.yellow('lan mode: reachable from other devices on your network'));
   console.log(C.dim(`repo ${root}`));
   console.log(C.dim('Ctrl-C stops the dashboard (run state is kept on disk)'));
   const shutdown = async () => {
@@ -411,7 +417,8 @@ ${C.bold('usage')}
   stewie graph [graph.json]             show the dependency graph
   stewie verify [command]               run repo checks once
   stewie doctor                         machine + repo readiness
-  stewie serve [--port 4321]            open the local dashboard
+  stewie serve [--port 4321] [--lan] [--tv]
+                                        open the dashboard (--tv = big screen mode)
 
 ${C.bold('run flags')}
   --concurrency N   parallel workers (default: ${defaultConcurrency()} on this machine)

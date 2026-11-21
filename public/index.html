@@ -162,6 +162,28 @@
   .activity { padding: 10px 12px; min-height: 44px; font-family: var(--mono); font-size: 11px; line-height: 1.55; color: #a7a7b6; white-space: pre-wrap; word-break: break-word; }
   .activity:empty::before { content: "idle"; color: var(--faint); }
 
+  /* big screen / tv mode: ?tv=1 */
+  body.tv { padding: 28px 34px; gap: 16px; }
+  body.tv .goal { display: none; }
+  body.tv .status { padding: 18px 22px; min-height: 82px; border-left-width: 5px; }
+  body.tv .status .state { font-size: 30px; letter-spacing: -0.02em; }
+  body.tv .status .what { font-size: 17px; }
+  body.tv .status .what code { font-size: 16px; }
+  body.tv .chip { font-size: 14px; padding: 5px 11px; }
+  body.tv .card > h2 { font-size: 13px; padding: 12px 16px; }
+  body.tv .node-head { padding: 14px 16px; gap: 12px; }
+  body.tv .nid { font-size: 15px; }
+  body.tv .label { font-size: 14px; }
+  body.tv .dur { font-size: 13px; min-width: 56px; }
+  body.tv .badge { font-size: 11px; }
+  body.tv .reason { font-size: 13px; }
+  body.tv .log { font-family: var(--mono); font-size: 13px; max-height: 40vh; }
+  body.tv .change { font-size: 14px; grid-template-columns: minmax(0, 1fr) 90px 56px 52px; }
+  body.tv .mark { font-size: 18px; }
+  body.tv #activityCard { display: none; }
+  body.tv .empty .t { font-size: 22px; }
+  body.tv .empty .s { font-size: 15px; }
+
   .pulse { animation: pulse 1.5s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
   @media (prefers-reduced-motion: reduce) { .pulse { animation: none } }
@@ -225,6 +247,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const fmtGB = (b) => (b / 1073741824).toFixed(1);
 const icon = (s) => ({ done: '✔', failed: '✖', blocked: '⊘', running: '▶', pending: '·' }[s] ?? '·');
 const ORDER = { running: 0, failed: 1, blocked: 2, pending: 3, done: 4 };
+const TV = new URLSearchParams(location.search).has('tv');
+if (TV) document.body.classList.add('tv');
 const state = { run: null, collapsed: new Set(), busy: false, lastLogAt: 0 };
 
 function secs(n) {
@@ -284,7 +308,9 @@ function render(d) {
     $('resumeBtn').disabled = true;
     $('stopBtn').disabled = true;
     $('main').classList.add('norun');
-    $('nodes').innerHTML = '<div class="empty"><div class="t">Ready.</div><div class="s">Describe a goal above. The planner maps it into workers, then they run two at a time with a check gate between them. <kbd>⌘⏎</kbd> starts it.</div></div>';
+    $('nodes').innerHTML = TV
+      ? '<div class="empty"><div class="t">Ready.</div><div class="s">Nothing running. Start a job from the Mac and it shows up here.</div></div>'
+      : '<div class="empty"><div class="t">Ready.</div><div class="s">Describe a goal above. The planner maps it into workers, then they run two at a time with a check gate between them. <kbd>⌘⏎</kbd> starts it.</div></div>';
     $('changes').innerHTML = d.checks.length
       ? '<div class="checkslist">' + d.checks.map((c) => '<div>✓ ' + esc(c) + '</div>').join('') + '</div>'
       : '<div class="muted">No checks detected in this repo.</div>';

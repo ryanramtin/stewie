@@ -1,15 +1,42 @@
 {
-  "name": "stewie-orchestrator",
-  "version": "0.1.0",
-  "private": true,
+  "name": "stewie",
+  "version": "0.2.0",
+  "description": "A bounded task-graph runner and dashboard for coding agents. Point it at a repo, give it a goal, watch it work.",
   "type": "module",
-  "description": "Bounded task-graph runner for OpenCode: durable agentic coding loops that never melt the machine.",
+  "license": "MIT",
+  "author": "Ryan Ramtin",
+  "homepage": "https://github.com/ryanramtin/stewie",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanramtin/stewie.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ryanramtin/stewie/issues"
+  },
+  "keywords": [
+    "agents",
+    "coding-agent",
+    "opencode",
+    "orchestration",
+    "task-graph",
+    "dashboard",
+    "claude-code",
+    "codex"
+  ],
   "bin": {
     "stewie": "./bin/stewie.mjs"
   },
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node --test test/",
-    "lint": "node --check bin/stewie.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "demo": "node scripts/demo.mjs",
     "app": "bash scripts/build-app.sh",
     "icon": "node scripts/make-icon.mjs"
   },
