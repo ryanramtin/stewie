@@ -1,0 +1,13 @@
+{
+  "name": "stewie-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bounded task-graph runner for OpenCode: durable agentic coding loops that never melt the machine.",
+  "bin": { "stewie": "./bin/stewie.mjs" },
+  "scripts": {
+    "test": "node --test test/",
+    "lint": "node --check bin/stewie.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
