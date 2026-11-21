@@ -4,10 +4,16 @@
   "private": true,
   "type": "module",
   "description": "Bounded task-graph runner for OpenCode: durable agentic coding loops that never melt the machine.",
-  "bin": { "stewie": "./bin/stewie.mjs" },
+  "bin": {
+    "stewie": "./bin/stewie.mjs"
+  },
   "scripts": {
     "test": "node --test test/",
-    "lint": "node --check bin/stewie.mjs"
+    "lint": "node --check bin/stewie.mjs",
+    "app": "bash scripts/build-app.sh",
+    "icon": "node scripts/make-icon.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

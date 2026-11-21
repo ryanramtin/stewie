@@ -1,0 +1,89 @@
+#!/bin/bash
+# Stewie launcher: pick a repo, start the dashboard, open it. No terminal.
+set -u
+
+export PATH="$HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+STATE="$HOME/.stewie"
+mkdir -p "$STATE"
+PORT=4321
+URL="http://127.0.0.1:$PORT"
+LOG="$STATE/dashboard.log"
+
+api_repo() {
+  curl -sf --max-time 1 "$URL/api/overview" 2>/dev/null |
+    /usr/bin/python3 -c 'import sys,json; print(json.load(sys.stdin).get("repo",""))' 2>/dev/null
+}
+
+last="$(cat "$STATE/last-repo" 2>/dev/null || true)"
+cur="$(api_repo)"
+
+repo="${STEWIE_REPO:-}"
+
+if [ -z "$repo" ]; then
+  # already serving the same repo -> straight to the dashboard
+  if [ -n "$cur" ] && [ -n "$last" ] && [ "$cur" = "$last" ]; then
+    open "$URL"
+    exit 0
+  fi
+
+  if [ -n "$last" ] && [ -d "$last" ]; then
+    choice="$(osascript - "$last" <<'AS' 2>/dev/null
+on run argv
+  set p to item 1 of argv
+  set r to display dialog "Work on this repo?" & return & return & p buttons {"Cancel", "Choose…", "Open"} default button "Open" with title "Stewie" with icon note
+  return button returned of r
+end run
+AS
+)"
+  else
+    choice="Choose…"
+  fi
+
+  case "$choice" in
+    Open) repo="$last" ;;
+    "Choose…")
+      repo="$(osascript - "$last" <<'AS' 2>/dev/null
+on run argv
+  set p to item 1 of argv
+  try
+    if p is "" then
+      set f to choose folder with prompt "Where should Stewie work?"
+    else
+      set f to choose folder with prompt "Where should Stewie work?" default location (POSIX file p)
+    end if
+  on error
+    return ""
+  end try
+  return POSIX path of f
+end run
+AS
+)"
+      ;;
+    *) exit 0 ;;
+  esac
+fi
+
+[ -n "$repo" ] || exit 0
+[ -d "$repo" ] || {
+  osascript -e 'display alert "Stewie" message "That folder is not accessible."' >/dev/null 2>&1
+  exit 1
+}
+
+pkill -f "stewie serve" >/dev/null 2>&1
+sleep 0.3
+
+echo "$repo" >"$STATE/last-repo"
+cd "$repo" || exit 1
+nohup "$HOME/bin/stewie" serve --port "$PORT" --no-open >"$LOG" 2>&1 &
+
+for _ in $(seq 1 60); do
+  if curl -sf --max-time 1 "$URL/api/overview" >/dev/null 2>&1; then
+    open "$URL"
+    exit 0
+  fi
+  sleep 0.25
+done
+
+osascript -e 'display alert "Stewie" message "The dashboard did not start. See ~/.stewie/dashboard.log for details."' >/dev/null 2>&1
+exit 1
