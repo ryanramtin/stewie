@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>stewie</title>
+<title>stewie console</title>
 <style>
   :root {
-    --bg: #08080a;
-    --panel: #101014;
-    --panel-2: #15151b;
-    --line: #23232c;
-    --text: #e9e9ee;
-    --dim: #8a8a97;
-    --faint: #5d5d6b;
+    --bg: #07070a;
+    --panel: #0f0f14;
+    --panel-2: #14141b;
+    --line: #22222c;
+    --text: #ececf1;
+    --dim: #9a9aa7;
+    --faint: #61616f;
     --accent: #a78bfa;
     --green: #4ade80;
     --red: #f87171;
@@ -24,118 +24,172 @@
   html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 18px 22px 16px; height: 100dvh; overflow: hidden;
   }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 24px 80px; }
-
-  header { display: flex; align-items: center; gap: 14px; padding-bottom: 18px; }
-  .mark { font-weight: 650; letter-spacing: -0.02em; font-size: 17px; }
-  .mark span { color: var(--accent); }
-  .repo { color: var(--faint); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 10px; }
   .spacer { flex: 1; }
+
+  header { flex: 0 0 auto; }
+  .mark { font-weight: 650; letter-spacing: -0.02em; font-size: 15px; color: var(--text); }
+  .mark b { color: var(--accent); font-weight: 650; }
+  .repo { color: var(--faint); font-family: var(--mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 42vw; }
   .pill {
-    display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
-    background: var(--panel); border: 1px solid var(--line); font-size: 12px; color: var(--dim);
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line); font-size: 11.5px; color: var(--dim);
     font-family: var(--mono); white-space: nowrap;
   }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
   .dot.warn { background: var(--amber); }
   .dot.bad { background: var(--red); }
 
-  .goal {
-    background: linear-gradient(180deg, #111118, #0d0d11);
-    border: 1px solid var(--line); border-radius: 14px; padding: 14px 14px 12px;
-    box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 30px -20px rgba(0,0,0,.9);
+  /* status strip */
+  .status {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(180deg, #101017, #0c0c11);
+    border: 1px solid var(--line); border-left: 3px solid var(--faint);
+    border-radius: 12px; padding: 12px 16px; min-height: 60px;
   }
+  .status.running { border-left-color: var(--cyan); }
+  .status.done { border-left-color: var(--green); }
+  .status.failed { border-left-color: var(--red); }
+  .status.waiting { border-left-color: var(--amber); }
+  .status .state { font-size: 15px; font-weight: 620; letter-spacing: -0.01em; }
+  .status .what { color: var(--dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status .what code { font-family: var(--mono); color: var(--text); font-size: 12px; }
+  .status .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .chip { font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+  .chip.ok { color: var(--green); border-color: #1f3a29; }
+  .chip.bad { color: var(--red); border-color: #3d2222; }
+  .chip.run { color: var(--cyan); border-color: #1d3a3f; }
+  .chip.warn { color: var(--amber); border-color: #3a3016; }
+
+  /* goal */
+  .goal { flex: 0 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 9px; }
+  .goal:focus-within { border-color: #33334a; }
   textarea {
-    width: 100%; resize: vertical; min-height: 54px; max-height: 220px;
-    background: transparent; border: 0; outline: 0; color: var(--text);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+    width: 100%; resize: none; height: 40px; background: transparent; border: 0; outline: 0;
+    color: var(--text); font: 14.5px/1.45 -apple-system, BlinkMacSystemFont, sans-serif;
   }
   textarea::placeholder { color: var(--faint); }
-  .goalbar { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid #1a1a22; }
-  .check { display: inline-flex; align-items: center; gap: 7px; color: var(--dim); font-size: 12.5px; user-select: none; cursor: pointer; }
+  .goalbar { display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid #191921; }
+  .check { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; user-select: none; cursor: pointer; }
   .check input { accent-color: var(--accent); }
 
   button {
-    font: inherit; font-size: 13px; font-weight: 550; color: var(--text);
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
-    padding: 7px 13px; cursor: pointer; transition: background .15s, border-color .15s, transform .06s;
+    font: inherit; font-size: 12.5px; font-weight: 550; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 11px; cursor: pointer; transition: background .14s, border-color .14s, transform .05s;
+    white-space: nowrap;
   }
-  button:hover:not(:disabled) { background: #1c1c24; border-color: #30303b; }
+  button:hover:not(:disabled) { background: #1d1d26; border-color: #31313d; }
   button:active:not(:disabled) { transform: translateY(1px); }
-  button:disabled { opacity: .45; cursor: default; }
-  button.primary { background: var(--accent); border-color: #8b6ff0; color: #150c2e; }
-  button.primary:hover:not(:disabled) { background: #b6a0ff; border-color: #b6a0ff; }
+  button:disabled { opacity: .38; cursor: default; }
+  button.primary { background: var(--accent); border-color: #8b6ff0; color: #160d30; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #b7a2ff; border-color: #b7a2ff; }
   button.danger { color: var(--red); }
-  button.tiny { padding: 3px 8px; font-size: 11.5px; border-radius: 7px; }
-
-  .meta { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 18px; align-items: center; }
-  .meta .pill { background: transparent; }
   select {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 5px 9px; font: 12px var(--mono); outline: 0;
+    border-radius: 8px; padding: 5px 8px; font: 11.5px var(--mono); outline: 0; max-width: 380px;
   }
 
-  .cols { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; }
-  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
-
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
-  .card h2 {
-    margin: 0; padding: 12px 14px; font-size: 12px; font-weight: 600; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 8px;
+  /* main */
+  main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr); gap: 12px; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } body { overflow: auto; height: auto; } }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .col > .card { flex: 1 1 auto; }
+  main.norun .col > .card { flex: 0 0 auto; }
+  main.norun { align-content: start; }
+  .empty { padding: 46px 26px; text-align: center; }
+  .empty .t { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .empty .s { color: var(--faint); font-size: 12.5px; max-width: 460px; margin: 0 auto; line-height: 1.6; }
+  .empty kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--dim); }
+  .checkslist { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .checkslist div { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .card > h2 {
+    margin: 0; padding: 10px 13px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--faint); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
   }
-  .card h2 .count { color: var(--dim); font-family: var(--mono); letter-spacing: 0; text-transform: none; }
+  .card > h2 .n { color: var(--dim); font-family: var(--mono); letter-spacing: 0; text-transform: none; }
+  .body { flex: 1 1 auto; min-height: 0; overflow: auto; }
 
-  .node { border-bottom: 1px solid #191921; }
+  /* workers */
+  .node { border-bottom: 1px solid #17171e; }
   .node:last-child { border-bottom: 0; }
-  .node-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; }
-  .node-head:hover { background: #14141a; }
-  .icon { width: 16px; text-align: center; font-size: 13px; }
+  .node-head { display: flex; align-items: center; gap: 9px; padding: 9px 13px; cursor: pointer; }
+  .node-head:hover { background: #13131a; }
+  .node.open .node-head { background: #12121a; }
+  .icon { width: 14px; text-align: center; font-size: 12px; flex: 0 0 auto; }
   .icon.done { color: var(--green); }
   .icon.failed { color: var(--red); }
   .icon.blocked { color: var(--amber); }
   .icon.running { color: var(--cyan); }
   .icon.pending { color: var(--faint); }
-  .nid { font-family: var(--mono); font-size: 12.5px; min-width: 84px; }
-  .label { color: var(--dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .badge { font-family: var(--mono); font-size: 10.5px; color: var(--faint); border: 1px solid #26262f; border-radius: 5px; padding: 1px 5px; }
+  .nid { font-family: var(--mono); font-size: 12px; flex: 0 0 auto; }
+  .label { color: var(--dim); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
+  .badge { font-family: var(--mono); font-size: 10px; color: var(--faint); border: 1px solid #26262f; border-radius: 5px; padding: 1px 5px; flex: 0 0 auto; }
   .badge.heavy { color: var(--amber); border-color: #3a2f14; }
-  .dur { font-family: var(--mono); font-size: 11.5px; color: var(--faint); min-width: 44px; text-align: right; }
-  .reason { color: var(--red); font-size: 11.5px; font-family: var(--mono); padding: 0 14px 9px 40px; }
+  .delta { font-family: var(--mono); font-size: 10.5px; flex: 0 0 auto; }
+  .delta .a { color: var(--green); }
+  .delta .d { color: var(--red); }
+  .dur { font-family: var(--mono); font-size: 11px; color: var(--faint); flex: 0 0 auto; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+  .reason { color: var(--red); font-size: 11.5px; font-family: var(--mono); padding: 0 13px 8px 36px; }
+  .checks { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 13px 8px 36px; }
+  .checks .chip { font-size: 10px; padding: 1px 6px; }
   .log {
-    margin: 0 14px 12px; padding: 10px 12px; background: #0a0a0d; border: 1px solid #1b1b23; border-radius: 9px;
-    font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: #b9b9c6;
-    white-space: pre-wrap; word-break: break-word; max-height: 340px; overflow: auto;
+    margin: 0 12px 10px; padding: 9px 11px; background: #08080b; border: 1px solid #191921; border-radius: 8px;
+    font-family: var(--mono); font-size: 11px; line-height: 1.5; color: #b3b3c2;
+    white-space: pre-wrap; word-break: break-word; max-height: 230px; overflow: auto;
   }
-  .empty { padding: 22px 16px; color: var(--faint); font-size: 13px; text-align: center; }
-  .empty code { color: var(--dim); font-family: var(--mono); font-size: 12px; }
 
-  .activity { padding: 12px 14px; font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: #a9a9b6;
-    white-space: pre-wrap; word-break: break-word; max-height: 460px; overflow: auto; }
-  .activity .t { color: var(--faint); }
+  /* changes */
+  .changes { padding: 8px 6px 10px; }
+  .change { display: grid; grid-template-columns: minmax(0, 1fr) 64px 44px 40px; gap: 8px; align-items: center; padding: 4px 8px; font-family: var(--mono); font-size: 11.5px; }
+  .change:hover { background: #13131a; border-radius: 6px; }
+  .change .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #cfcfdb; }
+  .bar { height: 4px; border-radius: 2px; background: #1b1b24; overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .bar .a { background: var(--green); opacity: .85; }
+  .bar .d { background: var(--red); opacity: .85; }
+  .change .a { color: var(--green); text-align: right; }
+  .change .d { color: var(--red); text-align: right; }
+  .muted { padding: 14px; color: var(--faint); font-size: 12px; text-align: center; }
 
-  .pulse { animation: pulse 1.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  /* activity */
+  .activity { padding: 10px 12px; min-height: 44px; font-family: var(--mono); font-size: 11px; line-height: 1.55; color: #a7a7b6; white-space: pre-wrap; word-break: break-word; }
+  .activity:empty::before { content: "idle"; color: var(--faint); }
+
+  .pulse { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
   @media (prefers-reduced-motion: reduce) { .pulse { animation: none } }
-
-  .bar { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--line); background: #0d0d12; }
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 10px 14px; color: var(--faint); font-size: 11.5px; font-family: var(--mono); }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="mark">stewie<span>.</span></div>
+  <header class="row">
+    <div class="mark">stewie <b>console</b></div>
     <div class="repo" id="repo"></div>
     <div class="spacer"></div>
+    <select id="runSelect" title="previous runs"></select>
     <div class="pill" id="sys"><span class="dot"></span><span>…</span></div>
   </header>
 
-  <div class="goal">
-    <textarea id="goal" placeholder="What should it do?  e.g. add a --verbose flag to the web server and cover it with a test"></textarea>
+  <section class="status" id="status">
+    <div class="row" style="gap:10px; min-width:0">
+      <span class="dot" id="stateDot"></span>
+      <div style="min-width:0">
+        <div class="state" id="stateWord">idle</div>
+        <div class="what" id="stateWhat">nothing running</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section class="goal">
+    <textarea id="goal" placeholder="What should it build?  ⌘⏎ to plan"></textarea>
     <div class="goalbar">
       <button class="primary" id="planBtn">Plan</button>
       <label class="check"><input type="checkbox" id="chain"> run when the plan looks good</label>
@@ -144,36 +198,40 @@
       <button id="resumeBtn" disabled>Resume</button>
       <button class="danger" id="stopBtn" disabled>Stop</button>
     </div>
-  </div>
+  </section>
 
-  <div class="meta">
-    <select id="runSelect"></select>
-    <div class="pill" id="counts"></div>
-    <div class="pill" id="checks"></div>
-  </div>
-
-  <div class="cols">
-    <div class="card">
-      <h2>Workers <span class="count" id="nodeCount"></span></h2>
-      <div id="nodes"><div class="empty">No run yet. Describe the goal above and hit <code>Plan</code>.</div></div>
-      <div class="legend">
-        <span>✔ done</span><span>▶ running</span><span>↻ retry</span><span>✖ failed</span><span>⊘ blocked</span><span>· queued</span>
+  <main id="main">
+    <div class="col">
+      <div class="card">
+        <h2>Workers <span class="n" id="nodeCount"></span><span class="spacer"></span><span class="n" id="legend">✔ done · ▶ running · ✖ failed · ⊘ blocked · · queued</span></h2>
+        <div class="body" id="nodes"><div class="muted">No run yet — describe a goal above and hit Plan.</div></div>
       </div>
     </div>
-    <div class="card">
-      <h2>Activity</h2>
-      <div class="activity" id="activity">idle</div>
+    <div class="col">
+      <div class="card" style="flex:1 1 auto">
+        <h2>Changed <span class="n" id="changedFrom"></span></h2>
+        <div class="body" id="changes"><div class="muted">Nothing changed yet.</div></div>
+      </div>
+      <div class="card" id="activityCard" style="flex:0 0 auto; max-height:210px">
+        <h2>Activity</h2>
+        <div class="body"><div class="activity" id="activity"></div></div>
+      </div>
     </div>
-  </div>
-</div>
+  </main>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const state = { run: null, open: new Set(), logCache: new Map(), lastJob: null, busy: false };
-const fmtGB = (b) => (b / 1073741824).toFixed(1);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtGB = (b) => (b / 1073741824).toFixed(1);
 const icon = (s) => ({ done: '✔', failed: '✖', blocked: '⊘', running: '▶', pending: '·' }[s] ?? '·');
-const dur = (n) => (n.startedAt ? Math.round(((n.endedAt ?? Date.now()) - n.startedAt) / 1000) + 's' : '');
+const ORDER = { running: 0, failed: 1, blocked: 2, pending: 3, done: 4 };
+const state = { run: null, collapsed: new Set(), busy: false, lastLogAt: 0 };
+
+function secs(n) {
+  if (!n.startedAt) return '';
+  const s = Math.round(((n.endedAt ?? Date.now()) - n.startedAt) / 1000);
+  return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+}
 
 async function api(path, opts) {
   const res = await fetch(path, opts);
@@ -182,14 +240,22 @@ async function api(path, opts) {
   return body;
 }
 
+function setStatus(kind, word, whatHtml) {
+  $('status').className = 'status ' + kind;
+  $('stateWord').textContent = word;
+  $('stateWhat').innerHTML = whatHtml;
+  $('stateDot').className = 'dot ' + ({ running: '', done: '', failed: 'bad', waiting: 'warn' }[kind] ?? '');
+}
+
 async function poll() {
+  let d;
   try {
-    const q = state.run ? '?run=' + encodeURIComponent(state.run) : '';
-    const data = await api('/api/overview' + q);
-    render(data);
+    d = await api('/api/overview' + (state.run ? '?run=' + encodeURIComponent(state.run) : ''));
   } catch (e) {
     $('activity').textContent = 'dashboard lost the repo: ' + e.message;
+    return;
   }
+  render(d);
 }
 
 function render(d) {
@@ -198,92 +264,156 @@ function render(d) {
   $('sys').innerHTML = '<span class="dot ' + (s.ok ? '' : 'warn') + '"></span><span>load ' +
     s.load1.toFixed(1) + '/' + s.maxLoad.toFixed(0) + ' · ' + fmtGB(s.freeBytes) + 'GB free</span>';
 
-  $('runBtn').disabled = !d.hasGraph || state.busy;
-  $('resumeBtn').disabled = !d.current || state.busy;
-  $('planBtn').disabled = state.busy;
-  $('checks').textContent = d.checks.join(' · ') || 'no checks detected';
-
   const sel = $('runSelect');
   const ids = d.runs.map((r) => r.id);
   if (sel.dataset.ids !== ids.join(',')) {
     sel.dataset.ids = ids.join(',');
-    sel.innerHTML = d.runs.map((r) => '<option value="' + r.id + '">' + r.id + ' · ' + esc(r.goal || 'untitled').slice(0, 48) + '</option>').join('');
+    sel.innerHTML = d.runs.map((r) => '<option value="' + r.id + '">' + r.id + ' · ' + esc((r.goal || 'untitled').slice(0, 46)) + '</option>').join('');
     if (state.run) sel.value = state.run;
   }
   if (!state.run && d.runs[0]) { state.run = d.runs[0].id; sel.value = state.run; }
 
   const cur = d.current;
+  $('runBtn').disabled = !d.hasGraph || state.busy;
+  $('planBtn').disabled = state.busy;
   if (!cur) {
-    $('counts').textContent = 'no runs';
+    state.busy = false;
+    setStatus('', 'idle', 'no runs in this repo yet');
+    $('chips').innerHTML = '';
     $('nodeCount').textContent = '';
-    $('nodes').innerHTML = '<div class="empty">No run yet. Describe the goal above and hit <code>Plan</code>.</div>';
+    $('resumeBtn').disabled = true;
+    $('stopBtn').disabled = true;
+    $('main').classList.add('norun');
+    $('nodes').innerHTML = '<div class="empty"><div class="t">Ready.</div><div class="s">Describe a goal above. The planner maps it into workers, then they run two at a time with a check gate between them. <kbd>⌘⏎</kbd> starts it.</div></div>';
+    $('changes').innerHTML = d.checks.length
+      ? '<div class="checkslist">' + d.checks.map((c) => '<div>✓ ' + esc(c) + '</div>').join('') + '</div>'
+      : '<div class="muted">No checks detected in this repo.</div>';
+    $('changedFrom').textContent = d.checks.length ? 'checks available' : '';
     return;
   }
 
+  $('main').classList.remove('norun');
+  const nodes = cur.nodes.map((n) => ({ ...n, status: n.status || 'pending' }));
   const counts = {};
-  for (const n of cur.nodes) counts[n.status] = (counts[n.status] || 0) + 1;
-  $('counts').textContent = Object.entries(counts).map(([k, v]) => k + ' ' + v).join(' · ');
-  $('nodeCount').textContent = cur.nodes.length + ' nodes';
+  for (const n of nodes) counts[n.status] = (counts[n.status] || 0) + 1;
+  const running = nodes.filter((n) => n.status === 'running');
+  const failed = nodes.filter((n) => n.status === 'failed');
+  const queued = (counts.pending || 0) + (counts.blocked || 0);
+  state.busy = running.length > 0;
 
-  const running = counts.running > 0;
-  state.busy = running;
-  $('stopBtn').disabled = !running;
+  // status strip
+  if (running.length) {
+    const n = running[0];
+    setStatus('running', 'Running', '<code>' + esc(n.id) + '</code> · ' + esc(n.label) + ' · ' + secs(n));
+  } else if (failed.length) {
+    const n = failed[0];
+    setStatus('failed', 'Failed', '<code>' + esc(n.id) + '</code> · ' + esc(n.reason || 'stopped') + (failed.length > 1 ? ' · +' + (failed.length - 1) + ' more' : ''));
+  } else if (queued) {
+    setStatus('waiting', s.ok ? 'Paused' : 'Waiting on the machine', s.ok ? 'nothing running, ' + queued + ' queued' : esc(s.reasons.join('; ')));
+  } else {
+    setStatus('done', 'Done', nodes.length + ' workers finished · ' + new Date(cur.createdAt).toLocaleString());
+  }
 
-  $('nodes').innerHTML = cur.nodes.map((n) => {
-    const open = state.open.has(n.id);
-    const st = n.status || 'pending';
-    const cls = 'icon ' + st + (st === 'running' ? ' pulse' : '');
-    return '<div class="node">' +
-      '<div class="node-head" data-node="' + esc(n.id) + '">' +
-        '<span class="' + cls + '">' + icon(st) + '</span>' +
+  const total = (key) => nodes.reduce((acc, n) => acc + (n.changes || []).length, 0);
+  const chips = [];
+  if (counts.done) chips.push('<span class="chip ok">' + counts.done + ' done</span>');
+  if (counts.running) chips.push('<span class="chip run">' + counts.running + ' running</span>');
+  if (counts.pending) chips.push('<span class="chip">' + counts.pending + ' queued</span>');
+  if (counts.failed) chips.push('<span class="chip bad">' + counts.failed + ' failed</span>');
+  if (counts.blocked) chips.push('<span class="chip warn">' + counts.blocked + ' blocked</span>');
+  $('chips').innerHTML = chips.join('');
+
+  $('nodeCount').textContent = nodes.length + ' nodes';
+  $('resumeBtn').disabled = !(failed.length || queued) || state.busy;
+  $('stopBtn').disabled = !running.length;
+
+  // workers, running first
+  const sorted = [...nodes].sort((a, b) => (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9));
+  $('nodes').innerHTML = sorted.map((n) => {
+    const open = !state.collapsed.has(n.id) && (n.status === 'running' || n.status === 'failed');
+    const adds = (n.changes || []).reduce((a, c) => a + c.adds, 0);
+    const dels = (n.changes || []).reduce((a, c) => a + c.deletes, 0);
+    const checks = (n.verify || []).map((v) => '<span class="chip ' + (v.code === 0 ? 'ok' : 'bad') + '">' + (v.code === 0 ? '✓' : '✗') + ' ' + esc(v.command) + '</span>').join('');
+    return '<div class="node' + (open ? ' open' : '') + '" data-node="' + esc(n.id) + '">' +
+      '<div class="node-head">' +
+        '<span class="icon ' + n.status + (n.status === 'running' ? ' pulse' : '') + '">' + icon(n.status) + '</span>' +
         '<span class="nid">' + esc(n.id) + '</span>' +
-        '<span class="badge ' + (n.heavy ? 'heavy' : '') + '">' + esc(n.kind) + (n.heavy ? ' heavy' : '') + '</span>' +
+        '<span class="badge ' + (n.heavy ? 'heavy' : '') + '">' + esc(n.kind) + '</span>' +
         '<span class="label">' + esc(n.label) + '</span>' +
         (n.attempts > 1 ? '<span class="badge">try ' + n.attempts + '</span>' : '') +
-        '<span class="dur">' + dur(n) + '</span>' +
+        (adds || dels ? '<span class="delta"><span class="a">+' + adds + '</span> <span class="d">−' + dels + '</span></span>' : '') +
+        '<span class="dur">' + secs(n) + '</span>' +
       '</div>' +
       (n.reason ? '<div class="reason">' + esc(n.reason) + '</div>' : '') +
+      (checks ? '<div class="checks">' + checks + '</div>' : '') +
       (open ? '<pre class="log" data-log="' + esc(n.id) + '">loading…</pre>' : '') +
     '</div>';
   }).join('');
 
+  renderChanges(nodes);
   for (const el of document.querySelectorAll('[data-log]')) loadLog(el.dataset.log, el);
 }
 
-const openLog = new Set();
+function renderChanges(nodes) {
+  // diffs are cumulative snapshots: use the most recently finished node that has one
+  const withChanges = nodes
+    .filter((n) => (n.changes || []).length)
+    .sort((a, b) => (b.endedAt || 0) - (a.endedAt || 0));
+  if (!withChanges.length) {
+    $('changes').innerHTML = '<div class="muted">Nothing changed yet.</div>';
+    $('changedFrom').textContent = '';
+    return;
+  }
+  const latest = withChanges[0];
+  const files = [...latest.changes].sort((a, b) => (b.adds + b.deletes) - (a.adds + a.deletes));
+  const max = Math.max(1, ...files.map((f) => f.adds + f.deletes));
+  $('changedFrom').textContent = 'from ' + latest.id;
+  $('changes').innerHTML = '<div class="changes">' + files.map((f) => {
+    const w = (f.adds + f.deletes) / max;
+    const aw = f.adds / (f.adds + f.deletes || 1);
+    return '<div class="change">' +
+      '<span class="p" title="' + esc(f.path) + '">' + esc(f.path) + '</span>' +
+      '<span class="bar"><i class="a" style="width:' + (w * aw * 100).toFixed(1) + '%"></i><i class="d" style="width:' + (w * (1 - aw) * 100).toFixed(1) + '%"></i></span>' +
+      '<span class="a">+' + (f.binary ? 'bin' : f.adds) + '</span>' +
+      '<span class="d">−' + (f.binary ? '' : f.deletes) + '</span>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
 async function loadLog(node, el) {
   try {
     const data = await api('/api/log?run=' + encodeURIComponent(state.run) + '&node=' + encodeURIComponent(node) + '&lines=200');
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
     el.textContent = data.text || '(no output yet)';
     if (atBottom) el.scrollTop = el.scrollHeight;
-  } catch { /* ignore */ }
+  } catch { /* ignored */ }
 }
-
-document.addEventListener('click', (e) => {
-  const head = e.target.closest('.node-head');
-  if (!head) return;
-  const id = head.dataset.node;
-  if (state.open.has(id)) state.open.delete(id); else state.open.add(id);
-  poll();
-});
 
 async function pollJobs() {
   try {
     const jobs = await api('/api/jobs');
     const job = jobs[jobs.length - 1];
-    if (!job) return;
-    $('activity').textContent = job.output || '(starting…)';
-    const el = $('activity'); el.scrollTop = el.scrollHeight;
-    $('stopBtn').disabled = job.status !== 'running' && $('stopBtn').disabled;
-    if (job.status !== 'running' && state.lastJob === job.id) return;
-    state.lastJob = job.id;
-  } catch { /* ignore */ }
+    $('activity').textContent = job ? job.output : '';
+    const el = $('activity').parentElement;
+    el.scrollTop = el.scrollHeight;
+    if (job?.status !== 'running' && $('stopBtn').disabled === false && jobs.length) {
+      // a job finished; the next poll picks up the new run
+    }
+  } catch { /* ignored */ }
 }
+
+document.addEventListener('click', (e) => {
+  const head = e.target.closest('.node-head');
+  if (!head) return;
+  const id = head.closest('.node').dataset.node;
+  if (state.collapsed.has(id)) state.collapsed.delete(id);
+  else state.collapsed.add(id);
+  poll();
+});
 
 $('planBtn').onclick = async () => {
   const goal = $('goal').value.trim();
-  if (!goal) { $('goal').focus(); return; }
+  if (!goal) return $('goal').focus();
   $('planBtn').disabled = true;
   try {
     await api('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ goal, execute: $('chain').checked }) });
@@ -291,7 +421,7 @@ $('planBtn').onclick = async () => {
   } catch (e) { $('activity').textContent = e.message; }
 };
 $('runBtn').onclick = async () => {
-  try { await api('/api/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ concurrency: 2 }) }); $('activity').textContent = 'starting…'; }
+  try { await api('/api/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ concurrency: 2 }) }); }
   catch (e) { $('activity').textContent = e.message; }
 };
 $('resumeBtn').onclick = async () => {
@@ -302,6 +432,9 @@ $('stopBtn').onclick = async () => {
   catch (e) { $('activity').textContent = e.message; }
 };
 $('runSelect').onchange = (e) => { state.run = e.target.value; poll(); };
+$('goal').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); $('planBtn').click(); }
+});
 
 poll();
 pollJobs();

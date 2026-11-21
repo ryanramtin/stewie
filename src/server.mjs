@@ -149,6 +149,7 @@ function overview(root, runParam) {
             heavy: n.heavy,
             label: n.label ?? (n.kind === 'shell' ? n.command : n.task).slice(0, 90),
             verify: n.verify,
+            changes: readChanges(current.dir, n.id),
             ...(current.nodes?.[n.id] ?? {}),
           })),
           graphText: graph ? renderGraph({ nodes: graph.nodes }) : '',
@@ -182,6 +183,26 @@ function readRun(root, id) {
   if (!dir) return null;
   const st = loadState(dir);
   return { id: st.runId, goal: st.goal, createdAt: st.createdAt, updatedAt: st.updatedAt, stats: st.stats, nodes: st.nodes, dir };
+}
+
+/** Files touched by a node, from the numstat captured when it finished. */
+function readChanges(dir, nodeId) {
+  const file = path.join(dir, 'diffs', `${nodeId}.numstat`);
+  if (!fs.existsSync(file)) return [];
+  return fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [adds, dels, p] = line.split('\t');
+      return {
+        path: p ?? '',
+        adds: adds === '-' ? 0 : Number(adds) || 0,
+        deletes: dels === '-' ? 0 : Number(dels) || 0,
+        binary: adds === '-',
+      };
+    })
+    .filter((c) => c.path);
 }
 
 function logTail(root, params) {

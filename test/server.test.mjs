@@ -26,7 +26,8 @@ test('serves the dashboard page', async () => {
     const res = await fetch(srv.url + '/');
     assert.equal(res.status, 200);
     const html = await res.text();
-    assert.match(html, /<title>stewie<\/title>/);
+    assert.match(html, /<title>stewie console<\/title>/);
+    assert.match(html, /Changed/);
     assert.match(html, /api\/overview/);
   });
 });

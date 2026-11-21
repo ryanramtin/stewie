@@ -265,10 +265,45 @@ export class Runner {
         maxBuffer: 32 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'ignore'],
       });
+      const numstat = execFileSync('git', ['diff', 'HEAD', '--numstat'], {
+        cwd: this.repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 32 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
       fs.writeFileSync(path.join(this.runDir, 'diffs', `${node.id}.patch`), patch);
       fs.writeFileSync(path.join(this.runDir, 'diffs', `${node.id}.stat`), stat);
+      fs.writeFileSync(path.join(this.runDir, 'diffs', `${node.id}.numstat`), numstat + this.untrackedNumstat());
     } catch {
       /* not a git repo, or nothing to diff */
+    }
+  }
+
+  untrackedNumstat() {
+    try {
+      const files = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
+        cwd: this.repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+        .split('\n')
+        .filter(Boolean)
+        .filter((f) => !f.startsWith('.stewie/') && !f.includes('/node_modules/'))
+        .slice(0, 200);
+      let out = '';
+      for (const file of files) {
+        try {
+          const text = fs.readFileSync(path.join(this.repoRoot, file), 'utf8');
+          if (text.includes('\u0000')) continue;
+          const lines = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+          out += `${lines}\t0\t${file}\n`;
+        } catch {
+          /* unreadable, skip */
+        }
+      }
+      return out;
+    } catch {
+      return '';
     }
   }
 
