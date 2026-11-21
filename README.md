@@ -6,6 +6,7 @@ parallel workers, verification gates, resume-after-crash — while refusing to l
 those workers swap or freeze the machine.
 
 ```
+stewie serve             # local dashboard: goal box, live workers, logs, stop
 stewie plan "<goal>"     # planner agent writes .stewie/graph.json
 stewie run               # execute the graph, 2 workers at a time, guard on
 stewie status            # per-node state, always on disk
@@ -39,6 +40,7 @@ Agent CLIs differ less in the model than in the harness around it:
 | `stewie graph [graph.json]` | dependency listing |
 | `stewie verify [cmd]` | run detected `typecheck`/`lint`/`test` once |
 | `stewie doctor` | machine + repo readiness |
+| `stewie serve [--port]` | local dashboard at `127.0.0.1` (loopback only, no deps, no watchers) |
 
 `run` flags: `--concurrency N`, `--model`, `--agent`, `--budget-min N`,
 `--max-nodes N`, `--fail-fast`, `--dry-run`, `--force`.

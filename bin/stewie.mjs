@@ -10,6 +10,7 @@ import { validateGraph, renderGraph } from '../src/graph.mjs';
 import { Guard, defaultConcurrency, systemSnapshot, describeSystem } from '../src/guard.mjs';
 import { createRun, resolveRunDir, loadState, loadGraph } from '../src/state.mjs';
 import { Runner } from '../src/runner.mjs';
+import { startServer } from '../src/server.mjs';
 
 const C = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -374,6 +375,28 @@ function cmdDoctor() {
   if (fs.existsSync(runs)) console.log(`  runs         ${fs.readdirSync(runs).length}`);
 }
 
+// ---------------------------------------------------------------- serve
+
+async function cmdServe({ flags }) {
+  const root = repoRoot();
+  const port = Number(flags.port ?? 4321);
+  const srv = await startServer({
+    repoRoot: root,
+    port,
+    open: flags['no-open'] ? false : true,
+    log: (m) => console.log(C.bold(m)),
+  });
+  console.log(C.dim(`repo ${root}`));
+  console.log(C.dim('Ctrl-C stops the dashboard (run state is kept on disk)'));
+  const shutdown = async () => {
+    await srv.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+  return new Promise(() => {});
+}
+
 // ---------------------------------------------------------------- main
 
 const HELP = `${C.bold('stewie')} — bounded task-graph runner for OpenCode
@@ -388,6 +411,7 @@ ${C.bold('usage')}
   stewie graph [graph.json]             show the dependency graph
   stewie verify [command]               run repo checks once
   stewie doctor                         machine + repo readiness
+  stewie serve [--port 4321]            open the local dashboard
 
 ${C.bold('run flags')}
   --concurrency N   parallel workers (default: ${defaultConcurrency()} on this machine)
@@ -424,6 +448,9 @@ async function main() {
       return cmdVerify(rest) ?? 0;
     case 'doctor':
       return cmdDoctor() ?? 0;
+    case 'serve':
+    case 'dashboard':
+      return cmdServe(rest);
     case undefined:
     case 'help':
     case '--help':
