@@ -4,6 +4,7 @@
 // hard concurrency limits, and a system guard that refuses to swap the machine.
 
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { validateGraph, renderGraph } from '../src/graph.mjs';
@@ -377,21 +378,30 @@ function cmdDoctor() {
 
 // ---------------------------------------------------------------- serve
 
+function randomToken() {
+  return crypto.randomBytes(18).toString('hex');
+}
+
 async function cmdServe({ flags }) {
   const root = repoRoot();
   const port = Number(flags.port ?? 4321);
   const lan = Boolean(flags.lan);
   const tv = Boolean(flags.tv);
+  const token = lan ? (flags.token ?? randomToken()) : null;
   const srv = await startServer({
     repoRoot: root,
     port,
     host: lan ? '0.0.0.0' : '127.0.0.1',
     open: flags['no-open'] ? false : true,
     openPath: tv ? '/?tv=1' : '/',
+    token,
     log: (m) => console.log(C.bold(m)),
   });
   if (tv) console.log(C.dim('tv mode: big type, no input box — point the TV at this URL'));
-  if (lan) console.log(C.yellow('lan mode: reachable from other devices on your network'));
+  if (lan) {
+    console.log(C.yellow('lan mode: reachable from other devices, token required'));
+    console.log(C.dim(`tv url: ${srv.url}/?token=${token}${tv ? '&tv=1' : ''}`));
+  }
   console.log(C.dim(`repo ${root}`));
   console.log(C.dim('Ctrl-C stops the dashboard (run state is kept on disk)'));
   const shutdown = async () => {
@@ -417,7 +427,7 @@ ${C.bold('usage')}
   stewie graph [graph.json]             show the dependency graph
   stewie verify [command]               run repo checks once
   stewie doctor                         machine + repo readiness
-  stewie serve [--port 4321] [--lan] [--tv]
+  stewie serve [--port 4321] [--lan] [--tv] [--token HEX]
                                         open the dashboard (--tv = big screen mode)
 
 ${C.bold('run flags')}

@@ -50,7 +50,7 @@ Or open the console and do it from there:
 ```bash
 stewie serve            # http://127.0.0.1:4321
 stewie serve --tv       # big type, no input box, for a wall screen
-stewie serve --lan      # reachable from other devices on your network
+stewie serve --lan      # reachable from other devices; prints a token URL
 ```
 
 `stewie --help` lists the rest: `resume`, `logs`, `graph`, `verify`, `doctor`, `init`.
@@ -86,7 +86,7 @@ the work visible, which is the whole point of the TV.
 - Workers run with `nice -n 10`, in their own process group, with a timeout that kills the group.
 - State is written atomically, so a hard kill cannot corrupt a run.
 - Node prompts forbid commits, pushes and deploys.
-- `stewie serve` binds to loopback unless you pass `--lan`.
+- `stewie serve` binds to loopback unless you pass `--lan`, which mints a random token: the browser gets a cookie, every API call needs it, and the TV URL it prints already carries it.
 
 ## Also in here
 

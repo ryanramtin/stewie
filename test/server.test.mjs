@@ -104,3 +104,24 @@ test('unknown route is a 404', async () => {
     assert.equal(res.status, 404);
   });
 });
+
+test('token mode blocks the API without the token', async () => {
+  const repo = tmpRepo();
+  const srv = await startServer({ repoRoot: repo, port: 0, open: false, token: 'secret123', log: () => {} });
+  try {
+    const blocked = await fetch(srv.url + '/api/overview');
+    assert.equal(blocked.status, 401);
+
+    const withHeader = await fetch(srv.url + '/api/overview', { headers: { 'x-stewie-token': 'secret123' } });
+    assert.equal(withHeader.status, 200);
+
+    const withQuery = await fetch(srv.url + '/api/overview?token=secret123');
+    assert.equal(withQuery.status, 200);
+
+    const root = await fetch(srv.url + '/?token=secret123', { redirect: 'manual' });
+    assert.equal(root.status, 302);
+    assert.match(root.headers.get('set-cookie') ?? '', /stewie_token=secret123/);
+  } finally {
+    await srv.close();
+  }
+});

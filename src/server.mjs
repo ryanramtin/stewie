@@ -15,13 +15,28 @@ import { dashboardHtml } from './ui.mjs';
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'stewie.mjs');
 const MAX_JOB_OUTPUT = 20 * 1024;
 
-export function startServer({ repoRoot, port = 4321, host = '127.0.0.1', open = true, openPath = '/', log = () => {} }) {
+export function startServer({ repoRoot, port = 4321, host = '127.0.0.1', open = true, openPath = '/', token = null, log = () => {} }) {
   const jobs = new Map();
   let activeRun = null; // child process for a run
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
     try {
+      if (token) {
+        const cookie = /(?:^|;\s*)stewie_token=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
+        const given = url.searchParams.get('token') ?? cookie ?? req.headers['x-stewie-token'];
+        if (given !== token) {
+          res.writeHead(401, { 'content-type': 'text/plain' });
+          return res.end('stewie: missing or wrong token\n');
+        }
+        if (url.searchParams.has('token') && !url.pathname.startsWith('/api/')) {
+          res.writeHead(302, {
+            location: '/',
+            'set-cookie': `stewie_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+          });
+          return res.end();
+        }
+      }
       if (req.method === 'GET' && url.pathname === '/') return sendHtml(res, dashboardHtml());
       if (req.method === 'GET' && url.pathname === '/api/overview') return sendJson(res, overview(repoRoot, url.searchParams.get('run')));
       if (req.method === 'GET' && url.pathname === '/api/log') return sendJson(res, logTail(repoRoot, url.searchParams));
