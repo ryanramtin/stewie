@@ -13,6 +13,21 @@ import { memoryPrompt, rememberNode, parseNumstat } from './memory.mjs';
 
 const POLL_MS = 4000;
 
+/**
+ * A one-line desktop notification, so an inbox question or a dead run reaches a
+ * person who is not looking at the screen. Silent elsewhere, and easy to turn off.
+ */
+export function notify(title, message) {
+  if (process.env.STEWIE_NO_NOTIFY) return false;
+  if (process.platform !== 'darwin') return false;
+  try {
+    execFileSync('osascript', ['-e', `display notification ${JSON.stringify(String(message))} with title ${JSON.stringify(String(title))}`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export class Runner {
   constructor({ repoRoot, runDir, state, graph, guard, opts = {}, log = () => {} }) {
     this.repoRoot = repoRoot;
@@ -85,20 +100,23 @@ export class Runner {
         if (this.opts.failFast && this.state.nodes[node.id].status === 'pending' && this.anyFailed()) break;
         if (node.heavy && (heavyRunning || this.inflight.size > 0)) break;
 
-        // stall protection: if everything has been waiting a long time, let one through
-        const stalled = Date.now() - this.lastStartAt > this.opts.stallMs;
+        // The guard holds until the machine is actually free. A long wait used to
+        // start a node anyway; now it only explains how to override, and waits.
+        const stalled = Date.now() - this.lastStartAt > (this.opts.stallMs ?? 3 * 60_000);
         const verdict = this.guard.canStart();
-        if (!verdict.ok && !stalled) {
-          if (Date.now() - this.lastWaitLog > 60_000) {
-            this.log(`holding: ${verdict.reason}`);
-            this.lastWaitLog = Date.now();
-            this.state.stats.pauses += 1;
-            saveState(this.runDir, this.state);
+        if (!verdict.ok) {
+          if (this.opts.forceStart) {
+            this.log(`machine busy (${verdict.reason}) — --force-start, running anyway`);
+          } else {
+            if (Date.now() - this.lastWaitLog > 60_000) {
+              const nudge = stalled ? ' (waiting a while — pass --force-start to override)' : '';
+              this.log(`holding: ${verdict.reason}${nudge}`);
+              this.lastWaitLog = Date.now();
+              this.state.stats.pauses += 1;
+              saveState(this.runDir, this.state);
+            }
+            break;
           }
-          break;
-        }
-        if (!verdict.ok && stalled) {
-          this.log(`machine still busy (${verdict.reason}) but stalled — starting one node anyway`);
         }
 
         this.startNode(node);
@@ -165,6 +183,8 @@ export class Runner {
       timeoutMs,
     });
     this.log(`✋ ${node.id} asks: ${requested.title} (inbox ${requested.id})`);
+    const ping = this.opts.notify ?? notify;
+    try { ping('stewie is waiting on you', `${node.id}: ${requested.title}`); } catch { /* notifications are optional */ }
     const st = this.state.nodes[node.id];
     if (st) {
       st.reason = 'waiting on you (inbox)';
@@ -346,6 +366,8 @@ export class Runner {
         st.status = 'failed';
         this.state.stats.failures += 1;
         this.log(`✖ ${node.id} failed: ${st.reason}`);
+        const ping = this.opts.notify ?? notify;
+        try { ping('stewie: a node failed', `${node.id}: ${st.reason}`); } catch { /* optional */ }
         // The graph cannot decide this one: it goes to the person's inbox so the
         // failure is not just a line in a log nobody reads.
         try {

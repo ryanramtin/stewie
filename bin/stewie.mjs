@@ -261,6 +261,7 @@ async function driveRunner({ root, dir, state, graph, flags }) {
       maxRuns: flags['max-nodes'] ? Number(flags['max-nodes']) : null,
       failFast: Boolean(flags['fail-fast']),
       stallMs: 3 * 60_000,
+      forceStart: Boolean(flags['force-start']),
       memory: !flags['no-memory'],
     },
     log,
@@ -741,6 +742,7 @@ ${C.bold('run flags')}
   --max-nodes N     stop after N node executions
   --fail-fast       stop scheduling once a node fails
   --dry-run         print the plan, execute nothing
+  --force-start     run a node even when the RAM/load guard says no (deliberate)
   --force           start even if the machine is busy
   --no-memory       do not read (or write) what earlier runs learned
 `;

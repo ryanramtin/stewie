@@ -19,7 +19,7 @@ more than that.
 
 - **Plans before it edits.** A read-only planner agent reads the repo and writes a dependency graph of small tasks.
 - **Runs workers in parallel, with a ceiling.** Two at a time by default, one heavy job (tests, typecheck, build) at a time.
-- **Refuses to melt the machine.** Before every start it reads real free RAM and load average. If either is over the line it holds and resumes when the machine frees up.
+- **Refuses to melt the machine.** Before every start it reads real free RAM and load average. If either is over the line it holds and resumes when the machine frees up — a long wait does not quietly start a node anyway; `--force-start` is the deliberate override.
 - **Checks its own work.** Every node can carry a verify command. The node is done when that command passes, not when the model says it is.
 - **Remembers the last run.** What each node changed, checked and failed at goes into `.stewie/memory`, and the next run's prompts start with it instead of from zero.
 - **Survives a crash.** Node state is written to disk on every transition, so `stewie resume` picks up where it stopped.
