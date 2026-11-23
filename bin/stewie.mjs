@@ -15,6 +15,7 @@ import { Runner } from '../src/runner.mjs';
 import { startServer } from '../src/server.mjs';
 import { askRepo, answerRepo, listRepo, waitForAnswer, expireStale, isRefusal } from '../src/inbox.mjs';
 import { parseExport, planImport, writeImport, describePlan, ImportError, IMPORT_PROMPT } from '../src/import.mjs';
+import { undoNode, undoSummary } from '../src/undo.mjs';
 import { memoryDir, memoryPrompt, memoryStats, readCurated, addFact, pruneNotes, ensureMemory } from '../src/memory.mjs';
 
 const C = {
@@ -641,6 +642,24 @@ async function cmdImport({ positional, flags }) {
   return 0;
 }
 
+// ---------------------------------------------------------------- undo
+
+function cmdUndo({ positional, flags }) {
+  const root = repoRoot();
+  const [node, runId] = positional;
+  if (!node) die('usage: stewie undo <node> [runId] [--dry-run]');
+  try {
+    const result = undoNode(root, { runId: runId ?? null, node, dryRun: Boolean(flags['dry-run']) });
+    console.log(undoSummary(result));
+    for (const f of result.restored) console.log(C.dim(`  ${result.dryRun ? '~' : '⟲'} ${f}`));
+    for (const f of result.removed) console.log(C.dim(`  ${result.dryRun ? '−' : '✖'} ${f}`));
+    if (result.dryRun) console.log(C.dim('dry run: nothing changed'));
+    return 0;
+  } catch (err) {
+    die(err.message);
+  }
+}
+
 // ---------------------------------------------------------------- serve
 
 function randomToken() {
@@ -689,6 +708,8 @@ ${C.bold('usage')}
   stewie resume [runId]                 continue an interrupted run
   stewie status [runId]                 show node states
   stewie logs <node> [runId]            print a node's log
+  stewie undo <node> [runId] [--dry-run]
+                                        put back the files that node touched
   stewie graph [graph.json]             show the dependency graph
   stewie verify [command]               run repo checks once
   stewie doctor                         machine + repo readiness
@@ -740,6 +761,8 @@ async function main() {
       return cmdStatus(rest) ?? 0;
     case 'logs':
       return cmdLogs(rest) ?? 0;
+    case 'undo':
+      return cmdUndo(rest) ?? 0;
     case 'verify':
       return cmdVerify(rest) ?? 0;
     case 'doctor':

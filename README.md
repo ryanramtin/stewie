@@ -54,7 +54,7 @@ stewie serve --tv       # big type, no input box, for a wall screen
 stewie serve --lan      # reachable from other devices; prints a token URL
 ```
 
-`stewie --help` lists the rest: `resume`, `logs`, `graph`, `verify`, `doctor`, `init`.
+`stewie --help` lists the rest: `resume`, `logs`, `undo`, `graph`, `verify`, `doctor`, `init`.
 
 ## The graph
 
@@ -75,6 +75,38 @@ Agent nodes get a child session with the goal, their task, and a summary of ever
 finished before them. Shell nodes run in `zsh -lc`. A node's verify commands decide success,
 and a failure retries once with backoff before it fails the node and blocks whatever
 depended on it.
+
+## Engines
+
+A node runs on whichever agent CLI you already have: **opencode** (default), **codex**,
+**claude** or **grok**. `"engine": "codex"` on a node, or on the graph for every node, picks
+it. `engineArgs` passes flags the table does not know yet, and `STEWIE_OPENCODE_BIN`,
+`STEWIE_CODEX_BIN`, `STEWIE_CLAUDE_BIN`, `STEWIE_GROK_BIN` override where a binary lives.
+Each engine runs unattended (opencode `--auto`, codex `--approve-for-me`, claude
+`--dangerously-skip-permissions`, grok `--always-approve`), because a node has nobody at the
+keyboard — the RAM/load guard, the verify gate and the inbox ask gates are the safety
+boundary, not the CLI's prompts.
+
+```json
+{ "id": "review", "engine": "claude", "model": "sonnet", "task": "Review the diff.", "verify": ["pnpm typecheck"] }
+```
+
+Model names are the engine's own, and `agent` keeps its opencode meaning (or claude/grok
+`--agent`). Shell nodes are unchanged and still run through `zsh -lc`.
+
+## Undo one node
+
+Every node gets a snapshot of the working tree before it starts and a list of the paths it
+changed. `stewie undo <node> [runId] [--dry-run]` puts those files back and removes files the
+node created, without touching anything the node never opened — even if a later node changed
+the same tree.
+
+```bash
+stewie undo tests                      # latest run
+stewie undo tests --dry-run            # show the plan
+```
+
+Runs made before this existed have no snapshot, and the command says so instead of guessing.
 
 ## Why a graph instead of one long session
 

@@ -8,6 +8,7 @@ import { readyNodes, markBlocked } from './graph.mjs';
 import { runProcess, shellCommand } from './exec.mjs';
 import { saveState } from './state.mjs';
 import { askRepo, waitForAnswer, isApproval } from './inbox.mjs';
+import { buildAgentCommand, engineFor } from './engines.mjs';
 import { memoryPrompt, rememberNode, parseNumstat } from './memory.mjs';
 
 const POLL_MS = 4000;
@@ -133,9 +134,13 @@ export class Runner {
     this.state.stats.retries += Math.max(0, st.attempts - 1);
     this.lastStartAt = Date.now();
     this.baseline.set(node.id, this.numstatNow());
+    // A tree of the working copy before this node touches anything, so its own
+    // changes can be undone later without disturbing the rest of the run.
+    st.baseTree = this.snapshotTree();
     saveState(this.runDir, this.state);
 
-    this.log(`▶ ${node.id} (${node.kind}, attempt ${st.attempts})`);
+    const runs = node.kind === 'agent' ? engineFor(node, this.graph) : node.kind;
+    this.log(`▶ ${node.id} (${runs}, attempt ${st.attempts})`);
     const promise = this.executeNode(node)
       .catch((err) => {
         this.log(`✖ ${node.id} threw: ${err?.message ?? err}`);
@@ -259,11 +264,15 @@ export class Runner {
     } else {
       const model = node.model ?? this.graph.model ?? this.state.model;
       const agent = node.agent ?? this.graph.agent ?? 'build';
-      const args = ['run', '--agent', agent, '--auto'];
-      if (model) args.push('--model', model);
-      args.push(this.promptFor(node));
+      const { command, args } = buildAgentCommand({
+        engine: engineFor(node, this.graph),
+        prompt: this.promptFor(node),
+        model,
+        agent,
+        extra: node.engineArgs ?? this.graph.engineArgs ?? [],
+      });
       result = await runProcess({
-        command: process.env.STEWIE_OPENCODE_BIN ?? 'opencode',
+        command,
         args,
         cwd,
         env,
@@ -311,6 +320,7 @@ export class Runner {
     st.verify = result.verify ?? [];
     st.endedAt = Date.now();
     this.captureDiff(node);
+    st.writes = this.changedSince(st.baseTree);
 
     const passed = result.code === 0 && (result.verify ?? []).every((v) => v.code === 0);
     if (passed) {
@@ -359,6 +369,41 @@ export class Runner {
   }
 
   /** Write this node down for the next run. Memory never fails a node. */
+  /** The working tree as a dangling commit, or HEAD when git has nothing to say. */
+  snapshotTree() {
+    try {
+      const stashed = execFileSync('git', ['stash', 'create'], { cwd: this.repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      if (stashed) return stashed;
+    } catch {
+      /* not a git repo */
+    }
+    try {
+      return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: this.repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch {
+      return null;
+    }
+  }
+
+  /** Paths that differ between a base tree and the working copy right now. */
+  changedSince(base) {
+    if (!base) return [];
+    const lines = (args) => {
+      try {
+        return execFileSync('git', args, { cwd: this.repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+          .split('\n')
+          .filter(Boolean);
+      } catch {
+        return [];
+      }
+    };
+    const tracked = lines(['diff', '--name-only', base]);
+    // Files the node created are untracked, so no diff against a tree names them.
+    const created = lines(['ls-files', '--others', '--exclude-standard']).filter(
+      (f) => !f.startsWith('.stewie/') && !f.includes('/node_modules/'),
+    );
+    return [...new Set([...tracked, ...created])];
+  }
+
   remember(node, result) {
     try {
       const numstat = path.join(this.runDir, 'diffs', `${node.id}.numstat`);
