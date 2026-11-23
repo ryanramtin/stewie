@@ -671,20 +671,24 @@ async function cmdServe({ flags }) {
   const port = Number(flags.port ?? 4321);
   const lan = Boolean(flags.lan);
   const tv = Boolean(flags.tv);
+  const view = ['console', 'calendar', 'inbox'].includes(String(flags.view)) ? String(flags.view) : null;
+  const idle = Number(flags.idle);
+  const query = [tv ? 'tv=1' : '', view ? `view=${view}` : '', tv && Number.isFinite(idle) && idle > 0 ? `idle=${idle}` : ''].filter(Boolean).join('&');
+  const openPath = query ? `/?${query}` : '/';
   const token = lan ? (flags.token ?? randomToken()) : null;
   const srv = await startServer({
     repoRoot: root,
     port,
     host: lan ? '0.0.0.0' : '127.0.0.1',
     open: flags['no-open'] ? false : true,
-    openPath: tv ? '/?tv=1' : '/',
+    openPath,
     token,
     log: (m) => console.log(C.bold(m)),
   });
-  if (tv) console.log(C.dim('tv mode: big type, no input box — point the TV at this URL'));
+  if (tv) console.log(C.dim(`tv mode: big type, no input box — point the TV at ${srv.url}${openPath}`));
   if (lan) {
     console.log(C.yellow('lan mode: reachable from other devices, token required'));
-    console.log(C.dim(`tv url: ${srv.url}/?token=${token}${tv ? '&tv=1' : ''}`));
+    console.log(C.dim(`tv url: ${srv.url}/?token=${token}${tv ? '&tv=1' : ''}${view ? `&view=${view}` : ''}`));
   }
   console.log(C.dim(`repo ${root}`));
   console.log(C.dim('Ctrl-C stops the dashboard (run state is kept on disk)'));
@@ -721,7 +725,7 @@ ${C.bold('usage')}
   stewie memory forget [--all]          trim old notes (MEMORY.md is kept)
   stewie import [file] [--paste] [--prompt]
                                         move a Grok Bot's setup across
-  stewie serve [--port 4321] [--lan] [--tv] [--token HEX]
+  stewie serve [--port 4321] [--lan] [--tv] [--view console|calendar|inbox] [--idle 90]
                                         open the dashboard (--tv = big screen mode)
 
 ${C.bold('ask flags')}

@@ -51,6 +51,8 @@ Or open the console and do it from there:
 ```bash
 stewie serve            # http://127.0.0.1:4321
 stewie serve --tv       # big type, no input box, for a wall screen
+stewie serve --tv --view calendar   # wall screen that opens on the week
+stewie serve --tv --idle 60         # quiet for 60s and the week takes over
 stewie serve --lan      # reachable from other devices; prints a token URL
 ```
 
