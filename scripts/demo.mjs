@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { normalizeGraph } from '../src/graph.mjs';
 import { createRun, saveState } from '../src/state.mjs';
+import { askRepo, answerRepo } from '../src/inbox.mjs';
 
 const i = process.argv.indexOf('--dir');
 const dir = path.resolve(i > -1 ? process.argv[i + 1] : '/tmp/stewie-demo');
@@ -65,5 +66,31 @@ fs.writeFileSync(
     'Running pnpm typecheck',
   ].join('\n'),
 );
+
+// A decision waiting on a person, plus the trail of one already answered,
+// so the inbox view has something real to render.
+const waiting = askRepo(dir, {
+  title: 'Ship the passkey migration to everyone, or gate it behind a flag?',
+  detail: 'The endpoint is behind FEATURE_PASSKEYS today. Removing the flag is a one-line change.',
+  options: ['gate it', 'ship to all'],
+  askedBy: 'stewie runner',
+  node: 'check',
+  runId: state.runId,
+});
+askRepo(dir, {
+  kind: 'note',
+  title: 'tests failed: verify failed: pnpm test -- passkey',
+  detail: `run ${state.runId}\nnode tests (agent)\n\nCover the new flow`,
+  askedBy: 'stewie runner',
+  node: 'tests',
+  runId: state.runId,
+});
+const answered = askRepo(dir, {
+  title: 'Use the paid model for the planner?',
+  options: ['allow', 'skip'],
+  askedBy: 'cli',
+});
+answerRepo(dir, answered.id, { choice: 'allow', note: 'only this once', by: 'you' });
+console.error(`waiting on you: stewie answer ${waiting.id} "gate it"`);
 
 console.log(runDir);

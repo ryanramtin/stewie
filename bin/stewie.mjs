@@ -6,12 +6,16 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import readline from 'node:readline/promises';
 import { execFileSync } from 'node:child_process';
 import { validateGraph, renderGraph } from '../src/graph.mjs';
 import { Guard, defaultConcurrency, systemSnapshot, describeSystem } from '../src/guard.mjs';
 import { createRun, resolveRunDir, loadState, loadGraph } from '../src/state.mjs';
 import { Runner } from '../src/runner.mjs';
 import { startServer } from '../src/server.mjs';
+import { askRepo, answerRepo, listRepo, waitForAnswer, expireStale, isRefusal } from '../src/inbox.mjs';
+import { parseExport, planImport, writeImport, describePlan, ImportError, IMPORT_PROMPT } from '../src/import.mjs';
+import { memoryDir, memoryPrompt, memoryStats, readCurated, addFact, pruneNotes, ensureMemory } from '../src/memory.mjs';
 
 const C = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -106,7 +110,11 @@ function cmdInit({ positional, flags }) {
   const current = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, 'utf8') : '';
   if (!current.split('\n').includes(ignoreLine)) fs.appendFileSync(gitignore, (current && !current.endsWith('\n') ? '\n' : '') + ignoreLine + '\n');
 
+  // Memory starts here: a file a person can edit and every node reads.
+  ensureMemory(root);
+
   console.log(`created ${path.relative(root, file)}`);
+  console.log(C.dim(`memory: ${path.relative(root, path.join(memoryDir(root), 'MEMORY.md'))} (kept across runs, local only)`));
   console.log(C.dim(`next: edit the nodes, then \`stewie run\` (or \`stewie plan "<goal>"\`)`));
 }
 
@@ -129,20 +137,26 @@ function cmdPlan({ positional, flags }) {
   const out = path.resolve(root, flags.out ?? '.stewie/graph.json');
   const model = flags.model ?? process.env.STEWIE_PLAN_MODEL ?? 'opencode-go/deepseek-v4.1-flash';
 
+  const remembered = memoryPrompt(root, { task: goal, goal });
+
   const prompt = [
     'Create an execution graph for this coding goal, as JSON only.',
     `GOAL: ${goal}`,
-    '',
-    'Respond with a single JSON object and nothing else, in this shape:',
-    `{"goal":"...","nodes":[{"id":"short-id","task":"what this worker must do","deps":[],"verify":["command"]}]}`,
-    '',
-    'Rules:',
-    '- 2 to 6 nodes, ids are short kebab-case, dependencies only reference earlier ids.',
-    '- Node 1 always explores and reports the repo (test commands, risky areas).',
-    '- The last node is a shell node that runs the real check command(s).',
-    '- Verification commands must be real commands that will work in this repo.',
-    '- Keep independent nodes parallel-friendly (they run concurrently).',
-  ].join('\n');
+    remembered ? `WHAT EARLIER RUNS IN THIS REPO LEARNED (do not plan a dead end it already hit):\n${remembered}` : '',
+    [
+      'Respond with a single JSON object and nothing else, in this shape:',
+      `{"goal":"...","nodes":[{"id":"short-id","task":"what this worker must do","deps":[],"verify":["command"]}]}`,
+      '',
+      'Rules:',
+      '- 2 to 6 nodes, ids are short kebab-case, dependencies only reference earlier ids.',
+      '- Node 1 always explores and reports the repo (test commands, risky areas).',
+      '- The last node is a shell node that runs the real check command(s).',
+      '- Verification commands must be real commands that will work in this repo.',
+      '- Keep independent nodes parallel-friendly (they run concurrently).',
+    ].join('\n'),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   log(`planning with ${model}…`);
   let stdout = '';
@@ -240,12 +254,13 @@ async function driveRunner({ root, dir, state, graph, flags }) {
     runDir: dir,
     state,
     graph,
-    guard: new Guard({}),
+    guard: new Guard(flags.force ? { minFreeBytes: 0, maxLoad: Number.POSITIVE_INFINITY } : {}),
     opts: {
       budgetMin: flags['budget-min'] ? Number(flags['budget-min']) : null,
       maxRuns: flags['max-nodes'] ? Number(flags['max-nodes']) : null,
       failFast: Boolean(flags['fail-fast']),
       stallMs: 3 * 60_000,
+      memory: !flags['no-memory'],
     },
     log,
   });
@@ -374,6 +389,256 @@ function cmdDoctor() {
   }
   const runs = path.join(root, '.stewie', 'runs');
   if (fs.existsSync(runs)) console.log(`  runs         ${fs.readdirSync(runs).length}`);
+  const mem = memoryStats(root);
+  const written = mem.curatedLines ? `${mem.curatedLines} written line(s)` : '';
+  const learned = mem.notes ? `${mem.notes} note(s) from ${mem.nodes} node(s), ${mem.files} file(s), last ${mem.ageDays}d ago` : '';
+  console.log(`  memory       ${[written, learned].filter(Boolean).join(' · ') || C.dim('nothing yet — the first run starts it')}`);
+}
+
+// ---------------------------------------------------------------- memory
+
+function cmdMemory({ positional, flags }) {
+  const root = repoRoot();
+  const sub = positional[0];
+  const words = positional.slice(1).join(' ').trim();
+
+  if (sub === 'add') {
+    if (!words) die('usage: stewie memory add "<one line>" [--lesson]');
+    const added = addFact(root, words, { section: flags.lesson ? 'Lessons' : 'Facts' });
+    console.log(C.green('remembered') + ` (${added.section.toLowerCase()}): ${added.line}`);
+    console.log(C.dim(`  ${path.relative(root, path.join(memoryDir(root), 'MEMORY.md'))}`));
+    return 0;
+  }
+
+  if (sub === 'forget') {
+    if (flags.all) {
+      const removed = pruneNotes(root, { keep: 0 });
+      console.log(C.green('cleared') + ` ${removed} remembered node(s) — MEMORY.md is untouched`);
+      return 0;
+    }
+    const removed = pruneNotes(root, { keep: Number(flags.keep ?? 100) });
+    console.log(removed ? C.green('trimmed') + ` ${removed} old note(s)` : C.dim('nothing to trim'));
+    return 0;
+  }
+
+  if (sub === 'path') {
+    console.log(memoryDir(root));
+    return 0;
+  }
+
+  const stats = memoryStats(root);
+  const curated = readCurated(root).trim();
+  const preview = memoryPrompt(root, { task: String(flags.task ?? ''), goal: String(flags.task ?? '') });
+
+  console.log(C.bold('stewie memory') + C.dim(` · ${path.relative(root, stats.dir)}`));
+  console.log(
+    C.dim(
+      `  ${stats.notes} note(s) · ${stats.nodes} node(s) · ${stats.failed} failure(s) · ${stats.files} file(s)` +
+        (stats.last ? ` · last ${stats.ageDays}d ago` : ' · empty'),
+    ),
+  );
+  console.log('');
+  console.log(curated || C.dim('MEMORY.md is empty — write one with: stewie memory add "<fact>"'));
+  console.log('');
+  console.log(C.bold(flags.task ? `what a node would see for "${flags.task}"` : 'what every node sees'));
+  console.log(preview ? indent(preview, '  ') : C.dim('  nothing yet — the first run starts it'));
+  return 0;
+}
+
+// ---------------------------------------------------------------- inbox
+
+async function cmdAsk({ positional, flags }) {
+  const root = repoRoot();
+  const title = positional.join(' ').trim();
+  if (!title) die('usage: stewie ask "<question>" [--detail "…"] [--options allow,skip] [--timeout 30]');
+  const options = String(flags.options ?? 'allow,skip')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const timeoutMin = flags.timeout == null ? 30 : Number(flags.timeout);
+  const item = askRepo(root, {
+    kind: 'question',
+    title,
+    detail: typeof flags.detail === 'string' ? flags.detail : '',
+    options,
+    askedBy: flags.by ?? process.env.STEWIE_NODE ?? 'cli',
+    node: process.env.STEWIE_NODE ?? null,
+    runId: process.env.STEWIE_RUN ?? null,
+    timeoutMs: timeoutMin > 0 ? timeoutMin * 60_000 : null,
+  });
+
+  console.log(C.bold('✋ ' + item.title));
+  if (item.detail) console.log(C.dim(indent(item.detail, '   ')));
+  console.log(C.dim(`   inbox id ${item.id} — also waiting in the dashboard${timeoutMin > 0 ? `, ${timeoutMin} min` : ''}`));
+
+  let answer = null;
+  if (process.stdin.isTTY && options.length) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const label = options.map((o, i) => `${i + 1}) ${o}`).join('   ');
+    const reply = await new Promise((resolve) => rl.question(`   ${label}   > `, resolve));
+    rl.close();
+    const picked = options[Number(reply.trim()) - 1] ?? (reply.trim() || options[0]);
+    answer = answerRepo(root, item.id, { choice: picked, by: 'terminal' });
+    console.log(C.green(`   → ${picked}`));
+  } else {
+    console.log(C.dim('   waiting… answer in the stewie dashboard, or run `stewie answer ' + item.id + ' <choice>`'));
+    const waited = await waitForAnswer(root, item.id, { timeoutMs: timeoutMin > 0 ? timeoutMin * 60_000 : 0 });
+    if (waited.status === 'answered') {
+      answer = waited.item;
+      console.log(C.green(`   → ${waited.answer.choice || '(no choice)'}${waited.answer.note ? ` — ${waited.answer.note}` : ''}`));
+    } else {
+      console.log(C.red(`   → ${waited.status}`));
+      return 4;
+    }
+  }
+
+  const choice = answer?.answer?.choice ?? '';
+  if (isRefusal(choice)) return 3;
+  return choice ? 0 : 4;
+}
+
+function cmdInbox({ flags }) {
+  const root = repoRoot();
+  expireStale(root);
+  const all = listRepo(root, { limit: 80 });
+  const open = all.filter((i) => i.status === 'open');
+  const recent = all.filter((i) => i.status !== 'open').slice(0, 12);
+
+  if (!open.length && !flags.all) console.log(C.dim('inbox empty — nothing is waiting on you'));
+  for (const item of open) {
+    const mark = item.kind === 'note' ? C.cyan('•') : C.yellow('?');
+    const who = [item.askedBy, item.node].filter(Boolean).join(' · ');
+    console.log(`${mark} ${C.bold(item.title)}`);
+    console.log(C.dim(`   ${item.id} · ${who} · ${ago(item.createdAt)}`));
+    if (item.detail) console.log(C.dim(indent(item.detail.split('\n').slice(0, 4).join('\n'), '   ')));
+    if (item.options.length) console.log(C.dim(`   options: ${item.options.join(' | ')}   → stewie answer ${item.id} <choice>`));
+  }
+  if (flags.all && recent.length) {
+    console.log(C.dim('\nrecent'));
+    for (const item of recent) {
+      console.log(C.dim(`   ${item.answer?.choice ?? item.status} · ${item.title.slice(0, 80)} · ${ago(item.createdAt)}`));
+    }
+  }
+  return 0;
+}
+
+function cmdAnswer({ positional, flags }) {
+  const root = repoRoot();
+  const [id, ...words] = positional;
+  if (!id) die('usage: stewie answer <inbox-id> <choice or words>');
+  const item = answerRepo(root, id, { choice: words.join(' ').trim() || String(flags.choice ?? 'allow'), note: String(flags.note ?? ''), by: 'terminal' });
+  if (!item) die(`no inbox item ${id}`);
+  console.log(`answered ${id}: ${item.answer?.choice ?? item.status}`);
+  return 0;
+}
+
+function indent(text, pad) {
+  return text.split('\n').map((l) => pad + l).join('\n');
+}
+
+function ago(at) {
+  const s = Math.round((Date.now() - at) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+
+// ---------------------------------------------------------------- import
+
+function readStdin() {
+  return new Promise((resolve) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('end', () => resolve(data));
+  });
+}
+
+const IMPORT_REASONS = {
+  notExport: 'that text is not an export — it needs the JSON document the old bot wrote',
+  cutOff: 'the document stops in the middle (unbalanced braces) — ask the bot for the rest and import every part',
+  tooLarge: `the document is over 4MB — import it in parts`,
+  newerVersion: 'that export is a newer format than this stewie understands',
+  credentials: 'the document carries credentials — it is refused whole, so nothing leaks. Take those keys out and try again',
+};
+
+async function cmdImport({ positional, flags }) {
+  const root = repoRoot();
+  if (flags.prompt) {
+    console.log(IMPORT_PROMPT);
+    return 0;
+  }
+
+  let text = '';
+  if (flags.paste) text = await readStdin();
+  else if (positional[0]) {
+    const file = path.resolve(root, positional[0]);
+    if (!fs.existsSync(file)) die(`no file at ${positional[0]}`);
+    text = fs.readFileSync(file, 'utf8');
+  } else {
+    console.log(C.bold('stewie import') + ' — move a Grok Bot across');
+    console.log('');
+    console.log('  1. stewie import --prompt        copy that prompt into the old bot');
+    console.log('  2. it replies with one JSON document: save it, or copy the whole reply');
+    console.log('  3. stewie import <file>          or: pbpaste | stewie import --paste');
+    console.log('');
+    console.log(C.dim('nothing is sent anywhere; the import is local files only'));
+    return 0;
+  }
+
+  let bots;
+  try {
+    bots = parseExport(text);
+  } catch (err) {
+    if (err instanceof ImportError) {
+      console.error(C.red(`stewie: ${IMPORT_REASONS[err.code] ?? err.code}`));
+      if (err.keys?.length) console.error(C.dim(`  credential-looking keys: ${err.keys.join(', ')}`));
+      return 1;
+    }
+    throw err;
+  }
+
+  const plan = planImport(bots);
+  const report = describePlan(plan, { written: [], skipped: [] });
+
+  if (flags['dry-run']) {
+    console.log(C.bold('would import'));
+    console.log(report);
+    for (const item of plan) {
+      if (item.memoryText) console.log(C.dim(`  .stewie/imports/${item.folder}/MEMORY.md`));
+      if (item.migrationText) console.log(C.dim(`  .stewie/imports/${item.folder}/MIGRATION.md`));
+      for (const s of item.skills) console.log(C.dim(`  .stewie/imports/${item.folder}/${s.file}`));
+      for (const g of item.graphs) console.log(C.dim(`  ${g.file}`));
+    }
+    return 0;
+  }
+
+  const { written, skipped } = writeImport(root, plan, { force: Boolean(flags.force) });
+  console.log(C.green('imported') + ' ' + bots.map((b) => b.name).join(', '));
+  console.log(describePlan(plan, { written, skipped }));
+
+  const graphs = plan.flatMap((item) => item.graphs.map((g) => g.file));
+  if (graphs.length) {
+    console.log('');
+    console.log(C.dim('run one: ') + `stewie run ${graphs[0]}`);
+  }
+  const needed = plan.filter((item) => item.migrationText);
+  if (needed.length) console.log(C.dim(`read: .stewie/imports/${needed[0].folder}/MIGRATION.md`));
+
+  // The result goes to the inbox too: an import is exactly the kind of thing a
+  // person should see once, with the parts that still need them.
+  try {
+    askRepo(root, {
+      kind: 'note',
+      title: `Imported ${bots.map((b) => b.name).join(', ')} from the old assistant`,
+      detail: `${report}${needed.length ? '\n\nWhat needs you:' : ''}${needed.map((i) => `\n- .stewie/imports/${i.folder}/MIGRATION.md`).join('')}`,
+      askedBy: 'stewie import',
+    });
+  } catch {
+    /* the inbox is never a reason to fail an import */
+  }
+  return 0;
 }
 
 // ---------------------------------------------------------------- serve
@@ -427,8 +692,21 @@ ${C.bold('usage')}
   stewie graph [graph.json]             show the dependency graph
   stewie verify [command]               run repo checks once
   stewie doctor                         machine + repo readiness
+  stewie ask "<question>" [flags]       ask a person and wait for the answer
+  stewie inbox [--all]                  what is waiting on you right now
+  stewie answer <id> <choice>           answer from the terminal
+  stewie memory [--task "…"]            what stewie has learned about this repo
+  stewie memory add "<one line>"        write a fact every node will read (--lesson)
+  stewie memory forget [--all]          trim old notes (MEMORY.md is kept)
+  stewie import [file] [--paste] [--prompt]
+                                        move a Grok Bot's setup across
   stewie serve [--port 4321] [--lan] [--tv] [--token HEX]
                                         open the dashboard (--tv = big screen mode)
+
+${C.bold('ask flags')}
+  --detail "…"      the context behind the question
+  --options a,b     the buttons (default: allow,skip)
+  --timeout N       minutes to wait, 0 = forever (default: 30)
 
 ${C.bold('run flags')}
   --concurrency N   parallel workers (default: ${defaultConcurrency()} on this machine)
@@ -439,6 +717,7 @@ ${C.bold('run flags')}
   --fail-fast       stop scheduling once a node fails
   --dry-run         print the plan, execute nothing
   --force           start even if the machine is busy
+  --no-memory       do not read (or write) what earlier runs learned
 `;
 
 async function main() {
@@ -465,6 +744,16 @@ async function main() {
       return cmdVerify(rest) ?? 0;
     case 'doctor':
       return cmdDoctor() ?? 0;
+    case 'ask':
+      return cmdAsk(rest);
+    case 'inbox':
+      return cmdInbox(rest) ?? 0;
+    case 'memory':
+      return cmdMemory(rest) ?? 0;
+    case 'answer':
+      return cmdAnswer(rest) ?? 0;
+    case 'import':
+      return cmdImport(rest);
     case 'serve':
     case 'dashboard':
       return cmdServe(rest);

@@ -30,6 +30,12 @@ export function normalizeNode(raw) {
     heavy: raw.heavy ?? (kind === 'shell' ? looksHeavy(raw.command, raw.verify ?? []) : (raw.verify ?? []).length > 0),
     cwd: raw.cwd ?? null,
     label: raw.label ?? null,
+    // A question for a person before this node runs: true, or the question itself.
+    ask: raw.ask ?? null,
+    askOptions: Array.isArray(raw.askOptions) ? raw.askOptions.map(String).slice(0, 6) : null,
+    askTimeoutMs: Number.isFinite(raw.askTimeoutMs) ? raw.askTimeoutMs : null,
+    // Memory from earlier runs is in the prompt unless this node opts out.
+    memory: raw.memory !== false,
   };
 }
 
@@ -40,6 +46,8 @@ export function normalizeGraph(graph) {
     model: g.model ?? null,
     agent: g.agent ?? null,
     concurrency: Number.isFinite(g.concurrency) ? g.concurrency : null,
+    askTimeoutMs: Number.isFinite(g.askTimeoutMs) ? g.askTimeoutMs : null,
+    memory: g.memory !== false,
     nodes: (Array.isArray(g.nodes) ? g.nodes : []).map(normalizeNode),
   };
 }
