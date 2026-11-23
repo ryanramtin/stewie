@@ -112,8 +112,10 @@ stewie answer mwsl90rz-9fe223 allow
   (the number badge on **Inbox**) or from another terminal; the same answer reaches whoever
   asked. Exit codes: `0` answered yes, `3` denied or skipped, `4` nobody answered in time.
 - A graph node can gate itself with `"ask": true` (or `"ask": "<question>"`). The scheduler
-  holds that node and the run until you answer; `skip` closes the node without running it.
-  `askOptions` and `askTimeoutMs` set the buttons and the wait.
+  holds that node and the run until you answer, and it fails closed: only an explicit yes
+  runs the node (the first option is the yes, or a choice that opens with an approval word).
+  Skip, dismiss, a different option or a vanished request all mean no; an unanswered question
+  fails the node. `askOptions` and `askTimeoutMs` set the buttons and the wait.
 - When a node fails for good, the runner leaves a note in the inbox instead of burying it in
   a log. Notes do not block anything; **seen** clears them.
 - Everything is one JSON file per item, so the CLI, the dashboard and a worker in another

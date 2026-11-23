@@ -169,3 +169,16 @@ export async function waitForAnswer(repoRoot, id, { timeoutMs = 0, pollMs = 700 
 export function isRefusal(choice) {
   return /^(no|nope|deny|denied|skip|skip it|cancel|stop|reject|rejected|disallow)\b/i.test(String(choice ?? '').trim());
 }
+
+/**
+ * True only for an explicit yes. The first option is the yes (unless it reads as a
+ * refusal), or the choice opens with an approval word. A gate runs on nothing else:
+ * skip, dismiss, a different option, or no answer all mean "do not run".
+ */
+export function isApproval(choice, options = []) {
+  const text = String(choice ?? '').trim();
+  if (!text) return false;
+  const first = String(options[0] ?? '').trim();
+  if (first && !isRefusal(first) && text.toLowerCase() === first.toLowerCase()) return true;
+  return /^(allow|approve|approved|yes|y|go|ok|okay|run|proceed|continue|push|ship|send|retry|use|deploy|install)\b/i.test(text);
+}

@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { readyNodes, markBlocked } from './graph.mjs';
 import { runProcess, shellCommand } from './exec.mjs';
 import { saveState } from './state.mjs';
-import { askRepo, waitForAnswer, isRefusal } from './inbox.mjs';
+import { askRepo, waitForAnswer, isApproval } from './inbox.mjs';
 import { memoryPrompt, rememberNode, parseNumstat } from './memory.mjs';
 
 const POLL_MS = 4000;
@@ -234,14 +234,21 @@ export class Runner {
     const cwd = node.cwd ? path.resolve(this.repoRoot, node.cwd) : this.repoRoot;
 
     // A node can be marked `"ask": true` (or with its own question). The scheduler
-    // holds the slot and the run until a person answers in the inbox.
+    // holds the slot and the run until a person answers in the inbox. It fails
+    // closed: only an explicit yes runs the node. Skip, dismiss, another option or
+    // a vanished request all mean no; an unanswered question fails the node.
     if (node.ask) {
+      const options = Array.isArray(node.askOptions) && node.askOptions.length ? node.askOptions : ['allow', 'skip'];
       const answer = await this.askHuman(node);
-      if (answer.status === 'answered' && isRefusal(answer.choice)) {
-        return { code: 0, stdout: `skipped on your answer: ${answer.choice}`, skipped: answer.choice };
-      }
-      if (answer.status === 'expired' || answer.status === 'timeout') {
-        return { code: 1, stdout: '', reason: 'nobody answered the inbox question' };
+      if (answer.status !== 'answered' || !isApproval(answer.choice, options)) {
+        // A retry here would only ask the same question again.
+        if (answer.status === 'missing') {
+          return { code: 1, stdout: '', reason: 'the inbox request is gone — not running a gated node', noRetry: true };
+        }
+        if (answer.status === 'expired' || answer.status === 'timeout') {
+          return { code: 1, stdout: '', reason: 'nobody answered the inbox question', noRetry: true };
+        }
+        return { code: 0, stdout: `not approved (${answer.status}${answer.choice ? `: ${answer.choice}` : ''})`, skipped: answer.choice || answer.status };
       }
     }
 
@@ -290,7 +297,7 @@ export class Runner {
 
     if (result.skipped) {
       st.status = 'done';
-      st.reason = null;
+      st.reason = `skipped: ${result.skipped}`;
       st.exitCode = 0;
       st.verify = [];
       st.endedAt = Date.now();
@@ -320,7 +327,7 @@ export class Runner {
             ? `verify failed: ${failedVerify.command}`
             : `exit ${result.code}`;
 
-      if (st.attempts <= node.maxRetries) {
+      if (!result.noRetry && st.attempts <= node.maxRetries) {
         st.status = 'pending';
         const base = this.opts.retryBaseMs ?? 5_000;
         st.nextEligibleAt = Date.now() + Math.min(60_000, base * 2 ** (st.attempts - 1));
