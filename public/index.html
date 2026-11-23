@@ -33,7 +33,7 @@
   .spacer { flex: 1; }
 
   header { flex: 0 0 auto; }
-  .mark { font-weight: 650; letter-spacing: -0.02em; font-size: 15px; color: var(--text); }
+  .mark { font-weight: 650; letter-spacing: -0.02em; font-size: 15px; color: var(--text); white-space: nowrap; }
   .mark b { color: var(--accent); font-weight: 650; }
   .repo { color: var(--faint); font-family: var(--mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 42vw; }
   .pill {
@@ -187,6 +187,132 @@
   .pulse { animation: pulse 1.5s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
   @media (prefers-reduced-motion: reduce) { .pulse { animation: none } }
+
+  /* view switch */
+  .views { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
+  .views button { background: transparent; border: 0; padding: 4px 11px; font-size: 11.5px; color: var(--dim); border-radius: 7px; display: inline-flex; align-items: center; gap: 6px; }
+  .views button.on { background: var(--panel-2); color: var(--text); }
+  .views .count {
+    min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px; background: var(--amber); color: #241a00;
+    font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+  }
+  body[class*="view-"] .status, body[class*="view-"] .goal, body[class*="view-"] #main { display: none; }
+  body.view-console .status, body.view-console .goal, body.view-console #main { display: flex; }
+  body.view-console .goal { display: block; }
+  body.view-console #main { display: grid; }
+
+  /* calendar */
+  #calendar {
+    display: none; flex: 1 1 auto; min-height: 0; position: relative;
+    flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  }
+  body.view-calendar #calendar { display: flex; }
+  .cal-bar { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  .cal-bar .nav { padding: 2px 9px; font-size: 14px; line-height: 1.2; }
+  .cal-range { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+  .cal-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .cal-seg button { border: 0; border-radius: 0; background: transparent; color: var(--dim); font-size: 11.5px; padding: 4px 10px; }
+  .cal-seg button.on { background: var(--panel-2); color: var(--text); }
+  .cal-main { flex: 1 1 auto; min-height: 0; display: flex; }
+  .cal-scroll { flex: 1 1 auto; min-width: 0; overflow: auto; overscroll-behavior: contain; --hour: 54px; --gutter: 52px; --days: 7; }
+  .cal-head, .cal-body {
+    display: grid; grid-template-columns: var(--gutter) repeat(var(--days), minmax(104px, 1fr));
+    min-width: calc(var(--gutter) + var(--days) * 104px);
+  }
+  .cal-head { position: sticky; top: 0; z-index: 20; background: #0b0b10; border-bottom: 1px solid var(--line); }
+  .cal-head .tz { display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 6px 6px 0; font-family: var(--mono); font-size: 9px; color: var(--faint); }
+  .cal-dayh { padding: 7px 8px 8px; border-left: 1px solid var(--line); text-align: center; }
+  .cal-dayh .d { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  .cal-dayh .n { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .cal-dayh.today .d { color: var(--accent); }
+  .cal-dayh.today .n { background: var(--accent); color: #160d30; }
+  .cal-body { position: relative; }
+  .cal-gutter { position: relative; border-right: 1px solid var(--line); }
+  .cal-gutter span { position: absolute; right: 6px; transform: translateY(-50%); font-family: var(--mono); font-size: 9.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .cal-day { position: relative; border-left: 1px solid #1a1a22; }
+  .cal-day.today { background: rgba(167, 139, 250, .035); }
+  .cal-day .line { position: absolute; inset-inline: 0; border-top: 1px solid #17171e; pointer-events: none; }
+  .cal-day .line.half { border-top: 1px dotted #121219; }
+  .cal-now { position: absolute; inset-inline: 0; border-top: 1px solid var(--red); z-index: 12; pointer-events: none; }
+  .cal-now i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+  .ev {
+    position: absolute; overflow: hidden; text-align: left; padding: 3px 6px 4px; border-radius: 7px;
+    background: var(--panel-2); border: 1px solid #26262f; border-left: 3px solid var(--faint);
+    color: var(--text); cursor: pointer; font: inherit; font-size: 10.5px; line-height: 1.28;
+  }
+  .ev:hover { background: #1a1a23; border-color: #3a3a4a; border-left-color: inherit; z-index: 15; }
+  .ev.done { border-left-color: var(--green); }
+  .ev.failed { border-left-color: var(--red); }
+  .ev.running { border-left-color: var(--cyan); }
+  .ev.paused { border-left-color: var(--amber); }
+  .ev.sel { outline: 1px solid var(--accent); outline-offset: 1px; z-index: 18; }
+  .ev .t { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev .m { display: block; font-family: var(--mono); font-size: 9px; color: var(--dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev.tall .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .ev.tall .m { white-space: normal; }
+  .cal-drawer {
+    flex: 0 0 330px; width: 330px; border-left: 1px solid var(--line); background: var(--panel);
+    overflow: auto; display: none;
+  }
+  .cal-drawer.open { display: block; }
+  .cal-drawer .dh { position: sticky; top: 0; background: var(--panel); display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 1px solid var(--line); }
+  .cal-drawer .dh .st { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
+  .cal-drawer .db { padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 11px; }
+  .cal-drawer .goaltext { font-size: 13.5px; line-height: 1.45; }
+  .cal-drawer .kv { display: grid; grid-template-columns: 74px 1fr; gap: 3px 8px; font-size: 11.5px; color: var(--dim); }
+  .cal-drawer .kv b { color: var(--faint); font-weight: 500; }
+  .cal-drawer .kv span { font-family: var(--mono); font-size: 11px; color: var(--text); }
+  .nodelist { display: flex; flex-direction: column; gap: 1px; }
+  .nl { display: flex; align-items: center; gap: 7px; padding: 4px 2px; border-bottom: 1px solid #17171e; font-size: 11px; }
+  .nl:last-child { border-bottom: 0; }
+  .nl .id { font-family: var(--mono); font-size: 10.5px; }
+  .nl .lb { flex: 1 1 auto; min-width: 0; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nl .du { font-family: var(--mono); font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .nodelist .why { color: var(--red); font-family: var(--mono); font-size: 10px; padding: 0 2px 5px 22px; }
+  .cal-empty { padding: 60px 20px; text-align: center; color: var(--faint); font-size: 12.5px; line-height: 1.6; }
+  body.tv .cal-scroll { --hour: 74px; --gutter: 62px; }
+  body.tv .cal-range { font-size: 17px; }
+  body.tv .cal-dayh .d { font-size: 11px; }
+  body.tv .cal-dayh .n { width: 30px; height: 30px; font-size: 16px; }
+  body.tv .ev { font-size: 13px; }
+  body.tv .ev .m { font-size: 11px; }
+  body.tv .cal-drawer { flex-basis: 400px; width: 400px; }
+  body.tv .cal-drawer .goaltext { font-size: 16px; }
+  body.tv .cal-drawer .kv, body.tv .nl { font-size: 13px; }
+
+  /* inbox */
+  #inbox {
+    display: none; flex: 1 1 auto; min-height: 0; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  }
+  body.view-inbox #inbox { display: flex; }
+  .ib-bar { display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  .ib-bar .t { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); }
+  .ib-bar .n { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .ib-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .ib-card { background: var(--panel-2); border: 1px solid #26262f; border-left: 3px solid var(--amber); border-radius: 10px; padding: 11px 13px 12px; }
+  .ib-card.note { border-left-color: var(--cyan); }
+  .ib-card.answered { border-left-color: var(--green); opacity: .72; }
+  .ib-card .top { display: flex; align-items: baseline; gap: 9px; }
+  .ib-card .qt { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; flex: 1 1 auto; min-width: 0; }
+  .ib-card .who { font-family: var(--mono); font-size: 10px; color: var(--faint); white-space: nowrap; }
+  .ib-card .detail { margin: 7px 0 0; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: #b3b3c2; white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto; }
+  .ib-actions { display: flex; align-items: center; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+  .ib-actions input {
+    flex: 1 1 180px; min-width: 120px; background: #0b0b10; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font: inherit; font-size: 12px; padding: 6px 9px; outline: 0;
+  }
+  .ib-actions input:focus { border-color: #3a3552; }
+  .ib-actions button { font-size: 12px; padding: 5px 11px; }
+  .ib-actions button.pick-no { color: var(--red); }
+  .ib-actions button.pick-yes { background: var(--accent); border-color: #8b6ff0; color: #160d30; font-weight: 600; }
+  .ib-actions button.pick-yes:hover:not(:disabled) { background: #b7a2ff; }
+  .ib-empty { padding: 60px 24px; text-align: center; color: var(--faint); font-size: 12.5px; line-height: 1.7; }
+  .ib-empty b { display: block; color: var(--dim); font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  body.tv .ib-card .qt { font-size: 17px; }
+  body.tv .ib-card .detail { font-size: 13px; }
+  body.tv .ib-actions button { font-size: 14px; padding: 8px 14px; }
+
 </style>
 </head>
 <body>
@@ -194,6 +320,11 @@
     <div class="mark">stewie <b>console</b></div>
     <div class="repo" id="repo"></div>
     <div class="spacer"></div>
+    <div class="views" id="views">
+      <button data-view="console">Console</button>
+      <button data-view="calendar">Calendar</button>
+      <button data-view="inbox" id="inboxTab">Inbox<span class="count" id="inboxCount" hidden></span></button>
+    </div>
     <select id="runSelect" title="previous runs"></select>
     <div class="pill" id="sys"><span class="dot"></span><span>…</span></div>
   </header>
@@ -240,6 +371,39 @@
       </div>
     </div>
   </main>
+
+  <section id="calendar">
+    <div class="cal-bar">
+      <button class="nav" id="calPrev" title="previous">‹</button>
+      <button class="nav" id="calNext" title="next">›</button>
+      <div class="cal-range" id="calRange">…</div>
+      <button id="calToday">Today</button>
+      <div class="cal-seg" id="calSeg">
+        <button data-days="1">Day</button>
+        <button data-days="7" class="on">Week</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="chips" id="calTotals"></div>
+    </div>
+    <div class="cal-main">
+      <div class="cal-scroll" id="calScroll">
+        <div class="cal-head" id="calHead"></div>
+        <div class="cal-body" id="calBody"></div>
+      </div>
+      <aside class="cal-drawer" id="calDrawer"></aside>
+    </div>
+  </section>
+
+  <section id="inbox">
+    <div class="ib-bar">
+      <span class="t">Inbox</span>
+      <span class="n" id="inboxSub"></span>
+      <div class="spacer"></div>
+      <label class="check"><input type="checkbox" id="inboxAll"> show answered</label>
+      <button id="inboxRefresh">Refresh</button>
+    </div>
+    <div class="ib-body" id="inboxBody"></div>
+  </section>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -467,6 +631,373 @@ pollJobs();
 setInterval(poll, 1500);
 setInterval(pollJobs, 1500);
 setInterval(() => { for (const el of document.querySelectorAll('[data-log]')) loadLog(el.dataset.log, el); }, 2000);
+</script>
+<script>
+// ---------------------------------------------------------------- views
+// Console, Calendar and Inbox are three looks at the same .stewie folder.
+const VIEWS = ['console', 'calendar', 'inbox'];
+const view = { name: 'console' };
+
+function setView(name) {
+  view.name = VIEWS.includes(name) ? name : 'console';
+  for (const k of VIEWS) document.body.classList.toggle('view-' + k, view.name === k);
+  for (const b of document.querySelectorAll('#views button')) b.classList.toggle('on', b.dataset.view === view.name);
+  if (view.name === 'calendar') loadCalendar();
+  if (view.name === 'inbox') loadInbox();
+  if (view.name === 'console') poll();
+}
+
+document.addEventListener('click', (e) => {
+  const tab = e.target.closest('#views button');
+  if (tab) setView(tab.dataset.view);
+});
+
+// ---------------------------------------------------------------- calendar
+const CAL = { anchor: Date.now(), days: 7, data: null, sel: null };
+const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const dayStart = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const addDays = (ms, n) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d.getTime(); };
+const weekStart = (ms) => { const d = new Date(dayStart(ms)); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
+const hm = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const span = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's'; };
+const hourPx = () => (document.body.classList.contains('tv') ? 74 : 54);
+const tzLabel = () => {
+  const m = -new Date().getTimezoneOffset();
+  const h = Math.floor(Math.abs(m) / 60);
+  const mi = Math.abs(m) % 60;
+  return 'GMT' + (m < 0 ? '-' : '+') + h + (mi ? ':' + String(mi).padStart(2, '0') : '');
+};
+
+async function loadCalendar() {
+  try {
+    const d = await api('/api/calendar?anchor=' + CAL.anchor + '&days=' + CAL.days);
+    CAL.data = d;
+    renderCalendar(d);
+  } catch (e) {
+    $('calHead').innerHTML = '';
+    $('calBody').innerHTML = '<div class="cal-empty">' + esc(e.message) + '</div>';
+  }
+}
+
+/** Side-by-side columns for overlapping runs (a wide run never hides a short one). */
+function packColumns(items) {
+  const sorted = [...items].sort((a, b) => a.start - b.start || (a.end - a.start) - (b.end - b.start));
+  const out = new Map();
+  let cluster = [];
+  let clusterEnd = 0;
+  let lanes = [];
+  const close = () => {
+    const cols = Math.max(1, ...cluster.map((i) => out.get(i.run.id).col + 1));
+    for (const i of cluster) out.get(i.run.id).cols = cols;
+    cluster = [];
+    lanes = [];
+    clusterEnd = 0;
+  };
+  for (const it of sorted) {
+    if (cluster.length && it.start >= clusterEnd) close();
+    let col = lanes.findIndex((endAt) => endAt <= it.start);
+    if (col < 0) { col = lanes.length; lanes.push(it.end); } else lanes[col] = it.end;
+    out.set(it.run.id, { col, cols: 1 });
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.end);
+  }
+  if (cluster.length) close();
+  return out;
+}
+
+function renderCalendar(d) {
+  const hour = hourPx();
+  const days = d.days;
+  const starts = Array.from({ length: days }, (_, i) => addDays(d.from, i));
+  const today = dayStart(Date.now());
+  const now = d.now || Date.now();
+  const scroll = $('calScroll');
+  scroll.style.setProperty('--days', days);
+  scroll.style.setProperty('--hour', hour + 'px');
+
+  const a = new Date(d.from);
+  const b = new Date(addDays(d.from, days - 1));
+  const opts = { month: 'short', day: 'numeric' };
+  $('calRange').textContent = days === 1
+    ? a.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })
+    : a.toLocaleDateString([], opts) + ' – ' + b.toLocaleDateString([], opts);
+
+  $('calHead').innerHTML = '<div class="tz">' + tzLabel() + '</div>' + starts.map((s) => {
+    const dd = new Date(s);
+    return '<div class="cal-dayh' + (s === today ? ' today' : '') + '">' +
+      '<div class="d">' + DOW[(dd.getDay() + 6) % 7] + '</div>' +
+      '<div class="n">' + dd.getDate() + '</div></div>';
+  }).join('');
+
+  const byDay = new Map(starts.map((s) => [s, []]));
+  for (const run of d.runs) {
+    const key = dayStart(run.startedAt);
+    if (byDay.has(key)) byDay.get(key).push(run);
+  }
+
+  const gutter = Array.from({ length: 24 }, (_, h) => h === 0 ? '' :
+    '<span style="top:' + (h * hour) + 'px">' + new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' }) + '</span>').join('');
+
+  $('calBody').innerHTML = '<div class="cal-gutter">' + gutter + '</div>' + starts.map((s) => {
+    const end = addDays(s, 1);
+    const items = byDay.get(s).map((run) => ({
+      run,
+      start: Math.max(run.startedAt, s),
+      end: Math.max(Math.min(run.endedAt ?? now, end), Math.max(run.startedAt, s) + 60_000),
+    }));
+    const lanes = packColumns(items);
+    const lines = Array.from({ length: 48 }, (_, i) =>
+      '<div class="line' + (i % 2 ? ' half' : '') + '" style="top:' + (i * hour) / 2 + 'px"></div>').join('');
+    const nowTop = ((now - s) / 3_600_000) * hour;
+    const nowLine = s === today && nowTop >= 0 && nowTop <= 24 * hour
+      ? '<div class="cal-now" style="top:' + nowTop + 'px"><i></i></div>' : '';
+    return '<div class="cal-day' + (s === today ? ' today' : '') + '">' + lines + nowLine +
+      items.map((it) => blockHtml(it, lanes.get(it.run.id), s, hour)).join('') + '</div>';
+  }).join('');
+
+  const t = d.totals;
+  const chips = ['<span class="chip">' + t.runs + ' run' + (t.runs === 1 ? '' : 's') + '</span>'];
+  if (t.running) chips.push('<span class="chip run">' + t.running + ' running</span>');
+  if (t.done) chips.push('<span class="chip ok">' + t.done + ' done</span>');
+  if (t.failed) chips.push('<span class="chip bad">' + t.failed + ' failed</span>');
+  if (t.paused) chips.push('<span class="chip warn">' + t.paused + ' paused</span>');
+  if (t.files) chips.push('<span class="chip">' + t.files + ' files <span style="color:var(--green)">+' + t.adds + '</span> <span style="color:var(--red)">−' + t.deletes + '</span></span>');
+  $('calTotals').innerHTML = chips.join('');
+
+  // Open the week at the current hour the first time, so the screen shows today's work.
+  const scrollKey = d.from + ':' + days;
+  if (CAL.scrollKey !== scrollKey) {
+    CAL.scrollKey = scrollKey;
+    const hourNow = new Date().getHours();
+    const anchorHour = starts.includes(today) ? Math.max(0, hourNow - 2) : 7;
+    requestAnimationFrame(() => {
+      scroll.scrollTop = anchorHour * hour - scroll.clientHeight * 0.35;
+    });
+  }
+
+  renderDrawer();
+}
+
+function blockHtml(it, lane, dayStartMs, hour) {
+  const run = it.run;
+  const top = ((it.start - dayStartMs) / 3_600_000) * hour;
+  const height = Math.max(22, ((it.end - it.start) / 3_600_000) * hour - 2);
+  const lay = lane || { col: 0, cols: 1 };
+  const width = 100 / lay.cols;
+  const failed = run.counts.failed || 0;
+  const tall = height > 54;
+  const meta = hm(it.start) + (run.endedAt ? '–' + hm(run.endedAt) : ' · running') +
+    ' · ' + run.nodes.length + ' worker' + (run.nodes.length === 1 ? '' : 's') + (failed ? ' · ' + failed + ' failed' : '');
+  return '<button class="ev ' + esc(run.status) + (tall ? ' tall' : '') + (CAL.sel === run.id ? ' sel' : '') + '"' +
+    ' data-run="' + esc(run.id) + '"' +
+    ' style="top:' + top + 'px;height:' + height + 'px;left:calc(' + width * lay.col + '% + 2px);width:calc(' + width + '% - 4px)"' +
+    ' title="' + esc(run.goal || run.id) + '">' +
+    '<span class="t">' + esc(run.goal || run.id) + '</span>' +
+    (tall ? '<span class="m">' + esc(meta) + '</span>' : '') +
+    '</button>';
+}
+
+function renderDrawer() {
+  const drawer = $('calDrawer');
+  const run = (CAL.data?.runs ?? []).find((r) => r.id === CAL.sel);
+  if (!run) {
+    drawer.classList.remove('open');
+    drawer.innerHTML = '';
+    return;
+  }
+  const color = { done: 'var(--green)', failed: 'var(--red)', running: 'var(--cyan)', paused: 'var(--amber)' }[run.status] || 'var(--faint)';
+  drawer.classList.add('open');
+  const countChips = ['done', 'running', 'pending', 'failed', 'blocked']
+    .filter((k) => run.counts[k])
+    .map((k) => '<span class="chip ' + ({ done: 'ok', failed: 'bad', running: 'run', pending: '', blocked: 'warn' }[k] ?? '') + '">' + run.counts[k] + ' ' + k + '</span>')
+    .join('');
+  const nodes = run.nodes.map((n) => {
+    const icon = ({ done: '✔', failed: '✖', blocked: '⊘', running: '▶', pending: '·' }[n.status]) ?? '·';
+    const took = n.startedAt ? span((n.endedAt ?? run.endedAt ?? Date.now()) - n.startedAt) : '';
+    return '<div class="nl"><span class="icon ' + esc(n.status) + '">' + icon + '</span>' +
+      '<span class="id">' + esc(n.id) + '</span>' +
+      '<span class="lb">' + esc(n.label || n.kind) + '</span>' +
+      '<span class="du">' + took + '</span></div>' +
+      (n.reason ? '<div class="why">' + esc(n.reason) + '</div>' : '');
+  }).join('');
+
+  drawer.innerHTML =
+    '<div class="dh"><span class="st" style="color:' + color + '">' + esc(run.status) + '</span>' +
+    '<span class="who" style="font-family:var(--mono);font-size:10px;color:var(--faint)">' + esc(run.id) + '</span>' +
+    '<div class="spacer" style="flex:1"></div>' +
+    '<button data-close-drawer title="close">×</button></div>' +
+    '<div class="db">' +
+    '<div class="goaltext">' + esc(run.goal || '(no goal recorded)') + '</div>' +
+    '<div class="kv">' +
+    '<b>when</b><span>' + new Date(run.startedAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + '</span>' +
+    '<b>took</b><span>' + span((run.endedAt ?? Date.now()) - run.startedAt) + '</span>' +
+    '<b>changes</b><span>' + (run.changes.files ? run.changes.files + ' files +' + run.changes.adds + ' −' + run.changes.deletes : 'none') + '</span>' +
+    (run.stats?.retries ? '<b>retries</b><span>' + run.stats.retries + '</span>' : '') +
+    '</div>' +
+    (countChips ? '<div class="checks">' + countChips + '</div>' : '') +
+    '<div class="nodelist">' + nodes + '</div>' +
+    '<button data-open-run="' + esc(run.id) + '">Open in console</button>' +
+    '</div>';
+}
+
+$('calPrev').onclick = () => { CAL.anchor = addDays(CAL.anchor, -CAL.days); CAL.sel = null; loadCalendar(); };
+$('calNext').onclick = () => { CAL.anchor = addDays(CAL.anchor, CAL.days); CAL.sel = null; loadCalendar(); };
+$('calToday').onclick = () => { CAL.anchor = Date.now(); CAL.sel = null; loadCalendar(); };
+$('calSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-days]');
+  if (!b) return;
+  CAL.days = Number(b.dataset.days);
+  for (const x of $('calSeg').querySelectorAll('button')) x.classList.toggle('on', x === b);
+  CAL.anchor = CAL.days === 1 ? dayStart(CAL.anchor) : weekStart(CAL.anchor);
+  loadCalendar();
+});
+
+document.addEventListener('click', (e) => {
+  const ev = e.target.closest('[data-run]');
+  if (ev) {
+    CAL.sel = ev.dataset.run;
+    if (CAL.data) renderCalendar(CAL.data);
+    return;
+  }
+  if (e.target.closest('[data-close-drawer]')) {
+    CAL.sel = null;
+    if (CAL.data) renderCalendar(CAL.data);
+    return;
+  }
+  const open = e.target.closest('[data-open-run]');
+  if (open) {
+    state.run = open.dataset.openRun;
+    setView('console');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (view.name !== 'calendar') return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? '')) return;
+  if (e.key === 'ArrowLeft') { $('calPrev').click(); }
+  if (e.key === 'ArrowRight') { $('calNext').click(); }
+  if (e.key === 'Escape') { CAL.sel = null; if (CAL.data) renderCalendar(CAL.data); }
+});
+
+// ---------------------------------------------------------------- inbox
+const INBOX = { all: false, data: null };
+
+async function loadInbox() {
+  try {
+    const d = await api('/api/inbox' + (INBOX.all ? '?status=all' : ''));
+    INBOX.data = d;
+    renderInbox(d);
+    setInboxBadge(d.count);
+  } catch (e) {
+    $('inboxBody').innerHTML = '<div class="ib-empty"><b>inbox unavailable</b>' + esc(e.message) + '</div>';
+  }
+}
+
+function setInboxBadge(n) {
+  const el = $('inboxCount');
+  if (!el) return;
+  el.hidden = !n;
+  el.textContent = n;
+}
+
+const ago = (at) => {
+  const s = Math.round((Date.now() - at) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  if (s < 86400) return Math.round(s / 3600) + 'h ago';
+  return Math.round(s / 86400) + 'd ago';
+};
+
+const refusal = (choice) => /^(no|nope|deny|denied|skip|cancel|stop|reject|disallow)\b/i.test(String(choice ?? '').trim());
+
+function renderInbox(d) {
+  const open = d.open ?? [];
+  const answered = INBOX.all ? (d.items ?? []).filter((i) => i.status !== 'open') : [];
+  $('inboxSub').textContent = open.length ? open.length + ' waiting' : 'nothing waiting on you';
+
+  if (!open.length && !answered.length) {
+    $('inboxBody').innerHTML = '<div class="ib-empty"><b>Nothing is waiting on you.</b>' +
+      'A worker that needs a call runs <code>stewie ask</code> and lands here. A graph node with <code>"ask": true</code> holds until you answer.</div>';
+    return;
+  }
+
+  const card = (item) => {
+    const who = [item.askedBy, item.node, ago(item.createdAt)].filter(Boolean).join(' · ');
+    const isQuestion = item.kind === 'question';
+    if (item.status !== 'open') {
+      return '<div class="ib-card answered' + (isQuestion ? '' : ' note') + '">' +
+        '<div class="top"><div class="qt">' + esc(item.title) + '</div><div class="who">' + esc(who) + '</div></div>' +
+        '<div class="ib-actions"><span class="chip ok">' + esc(item.answer?.choice || item.status) + '</span>' +
+        (item.answer?.note ? '<span class="chip">' + esc(item.answer.note) + '</span>' : '') + '</div></div>';
+    }
+    const options = item.options?.length ? item.options : (isQuestion ? ['allow', 'skip'] : []);
+    const buttons = options.map((o, i) =>
+      '<button data-choice="' + esc(o) + '" class="' + (!refusal(o) && i === 0 ? 'pick-yes' : refusal(o) ? 'pick-no' : '') + '">' + esc(o) + '</button>').join('');
+    return '<div class="ib-card' + (isQuestion ? '' : ' note') + '" data-card="' + esc(item.id) + '">' +
+      '<div class="top"><div class="qt">' + esc(item.title) + '</div><div class="who">' + esc(who) + '</div></div>' +
+      (item.detail ? '<pre class="detail">' + esc(item.detail) + '</pre>' : '') +
+      '<div class="ib-actions">' +
+      (isQuestion ? '<input data-note placeholder="a note back to the agent (optional)">' : '') +
+      buttons +
+      '<button data-dismiss title="take it off the queue">' + (isQuestion ? 'not now' : 'seen') + '</button>' +
+      '</div></div>';
+  };
+
+  $('inboxBody').innerHTML = open.map(card).join('') + (answered.length ? answered.map(card).join('') : '');
+}
+
+async function answerInbox(id, choice, note) {
+  try {
+    await api('/api/inbox/answer', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, choice, note }),
+    });
+  } catch (e) {
+    $('inboxSub').textContent = e.message;
+  }
+  loadInbox();
+}
+
+async function dismissInbox(id) {
+  try {
+    await api('/api/inbox/dismiss', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  } catch (e) {
+    $('inboxSub').textContent = e.message;
+  }
+  loadInbox();
+}
+
+$('inboxBody').addEventListener('click', (e) => {
+  const card = e.target.closest('[data-card]');
+  if (!card) return;
+  const note = card.querySelector('input[data-note]')?.value?.trim() ?? '';
+  const pick = e.target.closest('[data-choice]');
+  if (pick) return answerInbox(card.dataset.card, pick.dataset.choice, note);
+  if (e.target.closest('[data-dismiss]')) return dismissInbox(card.dataset.card);
+});
+$('inboxBody').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const card = e.target.closest('[data-card]');
+  if (!card) return;
+  const first = card.querySelector('[data-choice]');
+  if (!first) return;
+  e.preventDefault();
+  answerInbox(card.dataset.card, first.dataset.choice, card.querySelector('input[data-note]')?.value?.trim() ?? '');
+});
+$('inboxAll').onchange = (e) => { INBOX.all = e.target.checked; loadInbox(); };
+$('inboxRefresh').onclick = () => loadInbox();
+
+// ---------------------------------------------------------------- boot the right view
+setView(new URLSearchParams(location.search).get('view') || 'console');
+
+const refreshBadge = () => api('/api/inbox').then((d) => setInboxBadge(d.count)).catch(() => {});
+refreshBadge();
+setInterval(refreshBadge, 5000);
+setInterval(() => { if (view.name === 'calendar') loadCalendar(); }, 5000);
+setInterval(() => { if (view.name === 'inbox') loadInbox(); }, 5000);
 </script>
 </body>
 </html>

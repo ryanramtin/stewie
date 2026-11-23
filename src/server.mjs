@@ -9,11 +9,14 @@ import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { systemSnapshot } from './guard.mjs';
 import { runsDir, loadState, loadGraph, resolveRunDir } from './state.mjs';
+import { calendarRuns, windowFor } from './calendar.mjs';
+import { listRepo, answerRepo, dismissRepo, expireStale } from './inbox.mjs';
 import { renderGraph } from './graph.mjs';
 import { dashboardHtml } from './ui.mjs';
 
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'stewie.mjs');
 const MAX_JOB_OUTPUT = 20 * 1024;
+let lastExpireAt = 0;
 
 export function startServer({ repoRoot, port = 4321, host = '127.0.0.1', open = true, openPath = '/', token = null, log = () => {} }) {
   const jobs = new Map();
@@ -40,6 +43,18 @@ export function startServer({ repoRoot, port = 4321, host = '127.0.0.1', open = 
       if (req.method === 'GET' && url.pathname === '/') return sendHtml(res, dashboardHtml());
       if (req.method === 'GET' && url.pathname === '/api/overview') return sendJson(res, overview(repoRoot, url.searchParams.get('run')));
       if (req.method === 'GET' && url.pathname === '/api/log') return sendJson(res, logTail(repoRoot, url.searchParams));
+      if (req.method === 'GET' && url.pathname === '/api/calendar') return sendJson(res, calendar(repoRoot, url.searchParams));
+      if (req.method === 'GET' && url.pathname === '/api/inbox') return sendJson(res, inbox(repoRoot, url.searchParams));
+      if (req.method === 'POST' && url.pathname === '/api/inbox/answer') return handle(req, res, async (body) => {
+        const item = answerRepo(repoRoot, String(body.id ?? ''), { choice: body.choice, note: body.note });
+        if (!item) return sendJson(res, { error: 'no such inbox item' }, 404);
+        sendJson(res, { item, count: inbox(repoRoot, new URLSearchParams()).count });
+      });
+      if (req.method === 'POST' && url.pathname === '/api/inbox/dismiss') return handle(req, res, async (body) => {
+        const item = dismissRepo(repoRoot, String(body.id ?? ''));
+        if (!item) return sendJson(res, { error: 'no such inbox item' }, 404);
+        sendJson(res, { item, count: inbox(repoRoot, new URLSearchParams()).count });
+      });
       if (req.method === 'GET' && url.pathname === '/api/jobs') return sendJson(res, [...jobs.values()].slice(-20));
       if (req.method === 'POST' && url.pathname === '/api/plan') return handle(req, res, async (body) => {
         const goal = String(body.goal ?? '').trim();
@@ -242,6 +257,38 @@ function logTail(root, params) {
   if (!fs.existsSync(file)) return { text: '' };
   const text = tailFile(file, 96 * 1024);
   return { text: text.replace(/\n$/, '').split('\n').slice(-lines).join('\n') };
+}
+
+function calendar(root, params) {
+  const days = params.get('days') === '1' ? 1 : 7;
+  const anchor = Number(params.get('anchor')) || Date.now();
+  const { from, to } = windowFor(anchor, days);
+  const runs = calendarRuns(root, { from, to });
+  const totals = { runs: runs.length, done: 0, failed: 0, paused: 0, running: 0, files: 0, adds: 0, deletes: 0 };
+  for (const run of runs) {
+    if (totals[run.status] != null) totals[run.status] += 1;
+    totals.files += run.changes.files;
+    totals.adds += run.changes.adds;
+    totals.deletes += run.changes.deletes;
+  }
+  return { from, to, anchor, days, now: Date.now(), runs, totals };
+}
+
+function inbox(root, params) {
+  // Expiry only changes when a deadline passes; a 15s sweep is plenty.
+  const now = Date.now();
+  if (now - lastExpireAt > 15_000) {
+    lastExpireAt = now;
+    expireStale(root, now);
+  }
+  const status = params.get('status');
+  const items = listRepo(root, { status: status === 'all' ? null : status ?? null, limit: 120 });
+  const open = items.filter((i) => i.status === 'open');
+  return {
+    count: open.filter((i) => i.kind === 'question').length,
+    open,
+    items,
+  };
 }
 
 function tailFile(file, maxBytes) {
