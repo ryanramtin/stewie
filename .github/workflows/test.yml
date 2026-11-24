@@ -1,0 +1,18 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # The runner is macOS-shaped (zsh, osascript, vm_stat), so the suite runs there.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: test
+        run: node --test "test/*.test.mjs"
