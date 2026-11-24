@@ -12,6 +12,7 @@ import { runsDir, loadState, loadGraph, resolveRunDir } from './state.mjs';
 import { calendarRuns, windowFor } from './calendar.mjs';
 import { listRepo, answerRepo, dismissRepo, expireStale } from './inbox.mjs';
 import { loadLimits, loadLedger, describeBudget } from './budget.mjs';
+import { searchRepo } from './search.mjs';
 import { renderGraph } from './graph.mjs';
 import { dashboardHtml } from './ui.mjs';
 
@@ -45,6 +46,10 @@ export function startServer({ repoRoot, port = 4321, host = '127.0.0.1', open = 
       if (req.method === 'GET' && url.pathname === '/api/overview') return sendJson(res, overview(repoRoot, url.searchParams.get('run')));
       if (req.method === 'GET' && url.pathname === '/api/log') return sendJson(res, logTail(repoRoot, url.searchParams));
       if (req.method === 'GET' && url.pathname === '/api/calendar') return sendJson(res, calendar(repoRoot, url.searchParams));
+      if (req.method === 'GET' && url.pathname === '/api/search') {
+        const q = url.searchParams.get('q') ?? '';
+        return sendJson(res, searchRepo(repoRoot, q, { limit: Math.min(60, Number(url.searchParams.get('limit') ?? 40)) }));
+      }
       if (req.method === 'GET' && url.pathname === '/api/inbox') return sendJson(res, inbox(repoRoot, url.searchParams));
       if (req.method === 'POST' && url.pathname === '/api/inbox/answer') return handle(req, res, async (body) => {
         const item = answerRepo(repoRoot, String(body.id ?? ''), { choice: body.choice, note: body.note });

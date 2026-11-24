@@ -78,6 +78,14 @@ finished before them. Shell nodes run in `zsh -lc`. A node's verify commands dec
 and a failure retries once with backoff before it fails the node and blocks whatever
 depended on it.
 
+## Search
+
+`⌘K` (or `Ctrl-K`) opens a palette over everything stewie has written down: run goals and
+ids, node ids and failure reasons, inbox questions and the answers you gave, and matching
+lines inside node logs. Newest runs first, logs read from the tail and capped, results
+limited — no index, no database, no rebuild step. `↑ ↓` moves, `↵` opens (a run or node in the
+console, a question in the inbox), `esc` closes.
+
 ## Engines
 
 A node runs on whichever agent CLI you already have: **opencode** (default), **codex**,
