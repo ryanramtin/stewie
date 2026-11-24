@@ -514,6 +514,7 @@ function render(d) {
   if (counts.pending) chips.push('<span class="chip">' + counts.pending + ' queued</span>');
   if (counts.failed) chips.push('<span class="chip bad">' + counts.failed + ' failed</span>');
   if (counts.blocked) chips.push('<span class="chip warn">' + counts.blocked + ' blocked</span>');
+  if (d.budget && d.budget.line !== 'no ceiling set') chips.push('<span class="chip">' + esc(d.budget.line) + '</span>');
   $('chips').innerHTML = chips.join('');
 
   $('nodeCount').textContent = nodes.length + ' nodes';

@@ -33,6 +33,8 @@ export function normalizeNode(raw) {
     // Which installed CLI runs this node: opencode (default), codex, claude or grok.
     engine: raw.engine ?? null,
     engineArgs: Array.isArray(raw.engineArgs) ? raw.engineArgs.map(String) : null,
+    // Declared cost of one run of this node, in USD. Omitted means free.
+    cost: Number.isFinite(raw.cost) ? raw.cost : null,
     // A question for a person before this node runs: true, or the question itself.
     ask: raw.ask ?? null,
     askOptions: Array.isArray(raw.askOptions) ? raw.askOptions.map(String).slice(0, 6) : null,
@@ -51,6 +53,7 @@ export function normalizeGraph(graph) {
     concurrency: Number.isFinite(g.concurrency) ? g.concurrency : null,
     engine: g.engine ?? null,
     engineArgs: Array.isArray(g.engineArgs) ? g.engineArgs.map(String) : null,
+    budget: g.budget && typeof g.budget === 'object' ? g.budget : null,
     askTimeoutMs: Number.isFinite(g.askTimeoutMs) ? g.askTimeoutMs : null,
     memory: g.memory !== false,
     nodes: (Array.isArray(g.nodes) ? g.nodes : []).map(normalizeNode),

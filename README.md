@@ -96,6 +96,24 @@ boundary, not the CLI's prompts.
 Model names are the engine's own, and `agent` keeps its opencode meaning (or claude/grok
 `--agent`). Shell nodes are unchanged and still run through `zsh -lc`.
 
+## The weekly ceiling
+
+A run already stops on `--budget-min` and `--max-nodes`. The ceiling is the week-wide
+version, on disk, so three runs in one night cannot add up to something you did not agree to.
+
+```bash
+stewie budget set nodes=60 minutes=600 money=10
+stewie budget                    # what is left this week
+```
+
+Limits live in `.stewie/budget.json` and reset Monday. Nodes and minutes are measured; money
+counts only what a graph declares with `"cost"` on a node (USD, per run), so a graph running on
+a subscription simply declares nothing and the money cap stays idle. A graph may tighten the
+limits in its own `budget` block, never loosen them. When the ceiling is hit the runner stops
+scheduling, leaves the rest pending, and leaves a note in the inbox with what was spent — so
+`stewie resume` next week finishes the job. The console shows the week as a chip when a
+ceiling is set.
+
 ## Undo one node
 
 Every node gets a snapshot of the working tree before it starts and a list of the paths it

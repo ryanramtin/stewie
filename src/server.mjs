@@ -11,6 +11,7 @@ import { systemSnapshot } from './guard.mjs';
 import { runsDir, loadState, loadGraph, resolveRunDir } from './state.mjs';
 import { calendarRuns, windowFor } from './calendar.mjs';
 import { listRepo, answerRepo, dismissRepo, expireStale } from './inbox.mjs';
+import { loadLimits, loadLedger, describeBudget } from './budget.mjs';
 import { renderGraph } from './graph.mjs';
 import { dashboardHtml } from './ui.mjs';
 
@@ -197,6 +198,11 @@ function overview(root, runParam) {
         }
       : null,
     hasGraph: fs.existsSync(path.join(root, '.stewie', 'graph.json')),
+    budget: (() => {
+      const limits = loadLimits(root);
+      const ledger = loadLedger(root);
+      return { limits, ledger, line: describeBudget(limits, ledger) };
+    })(),
     checks: detectChecks(root),
   };
 }

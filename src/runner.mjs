@@ -9,6 +9,7 @@ import { runProcess, shellCommand } from './exec.mjs';
 import { saveState } from './state.mjs';
 import { askRepo, waitForAnswer, isApproval } from './inbox.mjs';
 import { buildAgentCommand, engineFor } from './engines.mjs';
+import { Budget, describeBudget } from './budget.mjs';
 import { memoryPrompt, rememberNode, parseNumstat } from './memory.mjs';
 
 const POLL_MS = 4000;
@@ -48,6 +49,9 @@ export class Runner {
     // What the working tree looked like before each node started, so a node is
     // credited with its own changes and not with the last node's.
     this.baseline = new Map();
+    // The weekly ceiling: nothing starts when the week's allowance is used up.
+    this.budget = new Budget(this.repoRoot).load(this.graph);
+    this.budgetHit = null;
   }
 
   stop(reason = 'signal') {
@@ -57,6 +61,7 @@ export class Runner {
 
   async run() {
     this.log(`run ${this.state.runId} · ${this.graph.nodes.length} nodes · concurrency ${this.state.concurrency}`);
+    if (this.budget.active) this.log(`ceiling: ${describeBudget(this.budget.limits, this.budget.ledger)}`);
     const pollMs = this.opts.pollMs ?? POLL_MS;
     while (!this.stopping) {
       if (this.deadline && Date.now() > this.deadline) {
@@ -97,6 +102,11 @@ export class Runner {
 
       for (const node of ready) {
         if (this.inflight.size >= this.state.concurrency) break;
+        const afford = this.budget.canAfford(node);
+        if (!afford.ok) {
+          this.budgetHit = afford.reason;
+          break;
+        }
         if (this.opts.failFast && this.state.nodes[node.id].status === 'pending' && this.anyFailed()) break;
         if (node.heavy && (heavyRunning || this.inflight.size > 0)) break;
 
@@ -123,6 +133,21 @@ export class Runner {
         startedThisTick += 1;
       }
 
+      if (this.budgetHit) {
+        this.log(`budget: ${this.budgetHit} — not starting more work this week`);
+        try {
+          askRepo(this.repoRoot, {
+            kind: 'note',
+            title: `weekly ceiling reached: ${this.budgetHit}`,
+            detail: `run ${this.state.runId} stopped with ${Object.values(this.state.nodes).filter((n) => n.status === 'pending').length} node(s) still pending.\n\nSpent this week: ${describeBudget(this.budget.limits, this.budget.ledger)}\n\nThe ceiling resets Monday. Raise it in .stewie/budget.json or resume the run next week.`,
+            askedBy: 'stewie runner',
+            runId: this.state.runId,
+          });
+        } catch {
+          /* the inbox is never a reason to fail a run */
+        }
+        break;
+      }
       if (startedThisTick === 0) await sleep(pollMs);
       else await sleep(Math.min(250, pollMs));
     }
@@ -339,6 +364,10 @@ export class Runner {
     st.exitCode = result.code;
     st.verify = result.verify ?? [];
     st.endedAt = Date.now();
+    this.budget.spend({
+      minutes: st.startedAt ? (st.endedAt - st.startedAt) / 60_000 : 0,
+      money: node.cost ?? 0,
+    });
     this.captureDiff(node);
     st.writes = this.changedSince(st.baseTree);
 

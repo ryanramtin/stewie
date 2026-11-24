@@ -16,6 +16,7 @@ import { startServer } from '../src/server.mjs';
 import { askRepo, answerRepo, listRepo, waitForAnswer, expireStale, isRefusal } from '../src/inbox.mjs';
 import { parseExport, planImport, writeImport, describePlan, ImportError, IMPORT_PROMPT } from '../src/import.mjs';
 import { undoNode, undoSummary } from '../src/undo.mjs';
+import { Budget, loadLimits, loadLedger, writeLimits, describeBudget, weekStart } from '../src/budget.mjs';
 import { memoryDir, memoryPrompt, memoryStats, readCurated, addFact, pruneNotes, ensureMemory } from '../src/memory.mjs';
 
 const C = {
@@ -643,6 +644,38 @@ async function cmdImport({ positional, flags }) {
   return 0;
 }
 
+// ---------------------------------------------------------------- budget
+
+function cmdBudget({ positional, flags }) {
+  const root = repoRoot();
+  if (positional[0] === 'set' || flags.set) {
+    const spec = positional[0] === 'set' ? positional.slice(1) : [String(flags.set)];
+    const limits = { ...loadLimits(root) };
+    for (const pair of spec.join(' ').split(/[\s,]+/).filter(Boolean)) {
+      const [key, value] = pair.split('=');
+      if (!['nodes', 'minutes', 'money'].includes(key)) die(`unknown ceiling "${key}" (nodes, minutes, money)`);
+      limits[key] = Number(value) || 0;
+    }
+    const clean = writeLimits(root, limits);
+    console.log(`ceiling set: ${describeBudget(clean, loadLedger(root))}`);
+    return 0;
+  }
+  const limits = loadLimits(root);
+  const ledger = loadLedger(root);
+  console.log(C.bold('weekly ceiling') + C.dim(` · week of ${weekStart()}`));
+  console.log(`  ${describeBudget(limits, ledger)}`);
+  if (!limits.nodes && !limits.minutes && !limits.money) {
+    console.log(C.dim('  set one: stewie budget set nodes=60 minutes=600 money=10'));
+  }
+  const run = resolveRunDir(root);
+  if (run) {
+    const state = loadState(run);
+    const spent = Object.values(state.nodes).filter((n) => n.startedAt).length;
+    console.log(C.dim(`  latest run ${state.runId}: ${spent} node(s) started`));
+  }
+  return 0;
+}
+
 // ---------------------------------------------------------------- undo
 
 function cmdUndo({ positional, flags }) {
@@ -715,6 +748,8 @@ ${C.bold('usage')}
   stewie logs <node> [runId]            print a node's log
   stewie undo <node> [runId] [--dry-run]
                                         put back the files that node touched
+  stewie budget [set nodes=N minutes=N money=N]
+                                        weekly ceiling on started work
   stewie graph [graph.json]             show the dependency graph
   stewie verify [command]               run repo checks once
   stewie doctor                         machine + repo readiness
@@ -769,6 +804,8 @@ async function main() {
       return cmdLogs(rest) ?? 0;
     case 'undo':
       return cmdUndo(rest) ?? 0;
+    case 'budget':
+      return cmdBudget(rest) ?? 0;
     case 'verify':
       return cmdVerify(rest) ?? 0;
     case 'doctor':
