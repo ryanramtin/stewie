@@ -10,6 +10,7 @@ import { saveState } from './state.mjs';
 import { askRepo, waitForAnswer, isApproval } from './inbox.mjs';
 import { buildAgentCommand, engineFor } from './engines.mjs';
 import { Budget, describeBudget } from './budget.mjs';
+import { readNotes } from './memory.mjs';
 import { memoryPrompt, rememberNode, parseNumstat } from './memory.mjs';
 
 const POLL_MS = 4000;
@@ -197,10 +198,20 @@ export class Runner {
   async askHuman(node) {
     const timeoutMs = Number(node.askTimeoutMs ?? this.graph.askTimeoutMs ?? 30 * 60_000);
     const options = Array.isArray(node.askOptions) && node.askOptions.length ? node.askOptions : ['allow', 'skip'];
+    // Show the person what will actually run, and what it touched last time, so
+    // the card is a review and not a rubber stamp.
+    const willRun = node.kind === 'shell' ? `Command: ${node.command}` : `Task: ${node.task}`;
+    let touched = '';
+    try {
+      const prior = readNotes(this.repoRoot).filter((n) => n.node === node.id).at(-1);
+      if (prior?.files?.length) touched = `\nLast time it touched: ${prior.files.slice(0, 8).join(', ')}`;
+    } catch {
+      /* memory is optional */
+    }
     const requested = askRepo(this.repoRoot, {
       kind: 'question',
       title: typeof node.ask === 'string' ? node.ask : `Run ${node.id}?`,
-      detail: node.task ?? node.command ?? '',
+      detail: `${willRun}${touched}`,
       options,
       askedBy: 'stewie runner',
       node: node.id,
